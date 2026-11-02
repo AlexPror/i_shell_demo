@@ -12,7 +12,9 @@
 - `index.html` - страница
 - `style.css` - оформление (печатная версия через `@media print`)
 - `calc.js` - формулы калькулятора и таблицы
-- `.github/workflows/deploy-pages.yml` - публикация на GitHub Pages при пуше в `main`
+- `.nojekyll` - отключает обработку Jekyll на GitHub Pages
+
+Публикация: GitHub Pages из ветки `main`, корень репозитория.
 
 ## Локальный просмотр
 
