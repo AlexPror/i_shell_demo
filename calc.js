@@ -166,7 +166,6 @@ function renderPlan() {
 const SCENARIOS = [
   { prod: 6, tag: "min", label: "средний показатель, 5 дней в неделю" },
   { prod: 6, k: 1.2, label: "то же плюс работа в субботу (6 дней в неделю)" },
-  { prod: 8, label: "после библиотеки элементов" },
   { prod: 10, tag: "target", label: "уровень штатного сотрудника" },
 ];
 
