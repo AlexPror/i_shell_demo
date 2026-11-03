@@ -94,7 +94,7 @@
   <div class="flow">
     <div class="step">Новая</div><span class="arrow">→</span>
     <div class="step">Назначена<small>старт до 1 раб. дня</small></div><span class="arrow">→</span>
-    <div class="step">В работе<small>срок по площади</small></div><span class="arrow">→</span>
+    <div class="step">В работе<small>ориентир по сроку</small></div><span class="arrow">→</span>
     <div class="step">Сдана</div><span class="arrow">→</span>
     <div class="step">Принята внутри<small>до 1–2 раб. дней</small></div><span class="arrow">→</span>
     <div class="step">Передана главному конструктору</div><span class="arrow">→</span>
@@ -106,17 +106,20 @@
     и «Правки» (до 1 раб. дня на цикл, два цикла бесплатно; дальше по отдельному соглашению).
   </p>
 
-  <h3>Сроки сдачи по площади позиции</h3>
+  <h3>Ориентир по срокам сдачи</h3>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Площадь позиции</th><th>Срок сдачи</th></tr></thead>
+      <thead><tr><th>Предварительная площадь чехла</th><th>Ориентир срока</th></tr></thead>
       <tbody id="due-body"></tbody>
     </table>
   </div>
   <p class="small">
-    Таблица считается от поля «Выработка исполнителя» в калькуляторе (сейчас база 6 м² в день, потенциал до 10).
-    По оценке главного конструктора штатный сотрудник делает около 10 м² за 8-часовой день.
-    Срок = площадь / выработка, округлённая вверх, минимум 1 день.
+    Площадь чехла заранее неизвестна: сначала строится 3D-модель оборудования, затем чехол, и только после этого площадь
+    становится окончательной. Поэтому срок ориентировочный: после построения модели оборудования исполнитель даёт предварительную
+    оценку площади по габаритам, а срок считается от поля «Ожидаемая выработка» в калькуляторе (сейчас база 6 м² в день, потенциал до 10).
+    По оценке главного конструктора штатный сотрудник делает около 10 м² за 8-часовой день. Выработка по дням разная,
+    поэтому это среднее. Срок = предварительная площадь / ожидаемая выработка, округлённая вверх, минимум 1 день.
+    Оплата всегда по окончательной подтверждённой площади.
     Для первых трёх позиций нового исполнителя добавляется 1 день на проверку и обучение.
   </p>
 </div></div></section>
@@ -138,10 +141,10 @@
     <li>Налоги подрядчика (УСН) и исполнителей (налог самозанятого) включены в ставку за м² по договору одной цифрой: около 672 ₽/м² при значениях по умолчанию (расчёт в калькуляторе ниже).</li>
   </ul>
 
-  <h3>Пример: первая партия из четырёх позиций (иллюстративные значения)</h3>
+  <h3>Пример: первая партия из четырёх позиций (площади условные, на деле известны после построения чехла)</h3>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Позиция</th><th class="num">Площадь, м²</th><th class="num">Срок, раб. дней</th><th class="num">Исполнителю</th><th class="num">Проверка и координация</th></tr></thead>
+      <thead><tr><th>Позиция</th><th class="num">Площадь, м²</th><th class="num">Ориентир срока, раб. дней</th><th class="num">Исполнителю</th><th class="num">Проверка и координация</th></tr></thead>
       <tbody id="example-body"></tbody>
     </table>
   </div>
@@ -170,16 +173,16 @@
         <div class="crow"><label for="c-tax-npd">Налог самозанятого, %</label><input id="c-tax-npd" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
       </div>
       <div class="cgroup">
-        <h4>Выработка и состав</h4>
-        <div class="crow"><label for="c-prod">Выработка, м² в день (6–10)</label><input id="c-prod" type="number" inputmode="decimal" value="6" min="0.5" step="0.5"></div>
-        <div class="crow"><label for="c-days">Рабочих дней в месяц</label><input id="c-days" type="number" inputmode="decimal" value="21" min="1" max="31"></div>
+        <h4>Допущения и состав</h4>
+        <div class="crow"><label for="c-prod">Ожидаемая выработка, м²/день (6–10)</label><input id="c-prod" type="number" inputmode="decimal" value="6" min="0.5" step="0.5"></div>
+        <div class="crow"><label for="c-days">Рабочих дней в периоде</label><input id="c-days" type="number" inputmode="decimal" value="21" min="1" max="31"></div>
         <div class="crow" data-only="group"><label for="c-load">Целевая загрузка, %</label><input id="c-load" type="number" inputmode="decimal" value="85" min="10" max="100"></div>
         <div class="crow" data-only="group"><label for="c-team">Исполнителей в группе</label><input id="c-team" type="number" inputmode="decimal" value="5" min="1" step="1"></div>
         <div class="crow" data-only="group"><label for="c-deadline">Дней до срока заказчика</label><input id="c-deadline" type="number" inputmode="decimal" value="8" min="1" step="1"></div>
       </div>
       <div class="cgroup">
         <h4>Факт за период</h4>
-        <div class="crow"><label for="c-fact">Фактическая выработка, м²</label><input id="c-fact" type="number" inputmode="decimal" value="500" min="0" step="1"></div>
+        <div class="crow"><label for="c-fact">Фактическая выработка, м² (принятая площадь)</label><input id="c-fact" type="number" inputmode="decimal" value="500" min="0" step="1"></div>
       </div>
     </div>
     <div class="calc-results">
@@ -204,10 +207,10 @@
 </div></div></section>
 
 <section class="block" id="volumes"><div class="wrap"><div class="panel">
-  <h2>3. План на месяц: <span id="plan-days">21</span> рабочий день</h2>
+  <h2>3. Прогноз мощности на месяц: <span id="plan-days">21</span> рабочий день</h2>
   <p>
     Группа из <strong id="plan-team">5</strong> <span id="plan-team-word">исполнителей</span>, выработка <strong id="plan-prod">6</strong> м² в день на человека
-    (значения берутся из калькулятора выше). Период разгона не закладываем: все работают на полной нагрузке с первой партии.
+    (допущение из калькулятора выше). Площадь позиции заранее неизвестна: она появляется только после построения 3D-модели и чехла, поэтому это не план выполнения, а оценка того, сколько группа может принять в работу. Фактический результат считается по принятой площади. Период разгона не закладываем: все работают на полной нагрузке с первой партии.
     Объём заказчик распределяет между всеми своими конструкторами, поэтому ниже показано, сколько наша группа физически закрывает
     и сколько из этого можно гарантировать в договоре.
   </p>
@@ -218,9 +221,9 @@
         <th>Рабочие дни</th>
         <th class="num">Группа за период, м²</th>
         <th class="num">Группа с начала месяца, м²</th>
-        <th class="num">Позиций с начала месяца</th>
+        <th class="num">Позиций с начала месяца (оценка)</th>
         <th class="num">Один исполнитель с начала месяца, м²</th>
-        <th class="num">Доход одного с начала месяца</th>
+        <th class="num">Доход одного с начала месяца (прогноз)</th>
       </tr></thead>
       <tbody id="plan-body"></tbody>
     </table>
@@ -236,12 +239,12 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>Выработка исполнителя</th>
+        <th>Допущение: выработка исполнителя</th>
         <th class="num">Один исполнитель в неделю, м²</th>
         <th class="num">Группа в месяц, м²</th>
         <th class="num">Гарантия в договоре (85%), м²</th>
-        <th class="num">Позиций в месяц</th>
-        <th class="num">Доход одного в месяц</th>
+        <th class="num">Позиций в месяц (оценка)</th>
+        <th class="num">Доход одного в месяц (прогноз)</th>
       </tr></thead>
       <tbody id="scen-body"></tbody>
     </table>

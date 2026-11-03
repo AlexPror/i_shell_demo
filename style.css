@@ -576,3 +576,5 @@ footer { background: var(--navy-3); color: #b8cddd; padding: 20px 0 30px; font-s
   .seg { display: flex; }
   .seg button { flex: 1; padding: 10px 8px; }
 }
+
+.calc-note { margin: 0 0 8px; }

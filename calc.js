@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 /* Расчёты на странице: все формулы собраны здесь.
    Значения по умолчанию - допущения, которые уточняются по итогам запуска. */
@@ -44,7 +44,8 @@ function params() {
     rateK: num("c-rate-k"),           // ставка проверяющему, руб/м2
     taxUsn: num("c-tax-usn") / 100,   // налог ИП (УСН), доля
     taxNpd: num("c-tax-npd") / 100,   // налог самозанятого, доля
-    prod: num("c-prod") || 1,         // м2 в рабочий день у исполнителя
+    prod: num("c-prod") || 1,         // допущение: м2 в рабочий день (для прогноза, не для оплаты)
+    prodRaw: num("c-prod"),           // то же без подстановки 1 (0 = допущение не задано)
     workDays: num("c-days") || 21,    // рабочих дней в месяц
     load: (num("c-load") || 85) / 100, // целевая загрузка исполнителя, доля
     models: num("c-models"),          // число позиций в программе
@@ -60,6 +61,9 @@ const peopleFor = (p, volume, days) =>
 
 /* Загрузка исполнителя в долях от его возможной выработки за период */
 const loadShare = (p, m2PerPerson, days) => m2PerPerson / (p.prod * days);
+
+/* Ориентир дохода исполнителя на руки в месяц, руб */
+const TARGET_NET = 50000;
 
 /* Доля мощности группы, которую можно гарантировать в договоре */
 const GUARANTEE = 0.85;
@@ -117,7 +121,8 @@ function groupHtml(p) {
   if (p.fact > 0) {
     fact = `<div class="rgroup"><h4>Факт за период</h4>
       ${crow("Фактически закрыто группой, м²", fmt(p.fact, 0))}
-      ${crow("Выполнение плана", p.volume > 0 ? fmt((p.fact / p.volume) * 100, 0) + "%" : "—")}
+      ${crow("Факт к заявленному объёму V", p.volume > 0 ? fmt((p.fact / p.volume) * 100, 0) + "%" : "—")}
+      ${crow("Средняя выработка на исполнителя в день, м²", fmt(p.fact / (p.team * p.workDays), 1))}
       ${crow("Исполнителям на руки", rub(p.fact * p.rateC))}
       ${crow("По чекам исполнителей", rub(p.fact * gross))}
       ${crow("Проверка и координация", rub(p.fact * p.rateK))}
@@ -127,6 +132,7 @@ function groupHtml(p) {
   }
 
   return `
+    <p class="small calc-note">Прогноз построен на допущении ВИ: площадь заранее неизвестна, фактическая появляется после построения модели и чехла.</p>
     <div class="kpis">
       ${kpi("Исполнителей нужно", n, "из " + p.team + " в группе")}
       ${kpi("На руки исполнителю", rub(per * p.rateC), "в месяц, по чеку " + rub(per * gross))}
@@ -139,12 +145,12 @@ function groupHtml(p) {
       ${crow("Позиций в рабочий день", fmt(items / p.workDays, 1))}
       ${crow("На исполнителя в неделю, м²", fmt(per / (p.workDays / 5), 0))}
     </div>
-    <div class="rgroup"><h4>Мощность группы</h4>
+    <div class="rgroup"><h4>Мощность группы (прогноз)</h4>
       ${crow("В месяц, м²", fmt(cap, 0))}
       ${crow("До срока заказчика, м²", fmt(capDeadline, 0))}
       ${crow("Гарантия к сроку (85%), м² / позиций", fmt(guaranteeDeadline, 0) + " / " + fmt(guaranteeDeadline / p.area, 0))}
     </div>
-    <div class="rgroup"><h4>Деньги в месяц</h4>
+    <div class="rgroup"><h4>Деньги в месяц при заявленном объёме</h4>
       ${crow("Исполнителям на руки", rub(p.volume * p.rateC))}
       ${crow("Налог самозанятых (в ставке)", rub(p.volume * (gross - p.rateC)))}
       ${crow("Проверка и координация", rub(p.volume * p.rateK))}
@@ -158,37 +164,48 @@ function groupHtml(p) {
 
 function soloHtml(p) {
   const gross = rateGross(p);
-  const plan = p.prod * p.workDays;            // плановая выработка за период
-  const net = p.fact * p.rateC;                // на руки
+  const net = p.fact * p.rateC;                // на руки: только по фактической площади
   const check = p.fact * gross;                // по чеку
+  const left = Math.max(0, TARGET_NET / p.rateC - p.fact); // сколько не хватает до ориентира дохода
   const warnings = [];
-  if (p.fact > plan) {
-    warnings.push(`<div class="callout ok">Факт выше плана на ${fmt(p.fact - plan, 0)} м².</div>`);
-  } else if (net < 50000) {
+  if (p.fact <= 0) {
+    warnings.push(`<div class="callout warn">Введите фактическую выработку: выплата считается только по принятой площади.</div>`);
+  } else if (left > 0) {
     warnings.push(
-      `<div class="callout warn">На руки ${rub(net)} за период: меньше ориентира 50 000 ₽ (около 100 м²).</div>`
+      `<div class="callout warn">До ориентира ${rub(TARGET_NET)} на руки не хватает ${fmt(left, 0)} м² принятой площади.</div>`
     );
+  } else {
+    warnings.push(`<div class="callout ok">Ориентир ${rub(TARGET_NET)} на руки достигнут.</div>`);
   }
+  const forecast =
+    p.prodRaw > 0
+      ? `<div class="rgroup"><h4>Ориентир по допущению</h4>
+      ${crow("Выработка в день, м² (допущение)", fmt(p.prodRaw, 1))}
+      ${crow("Ожидаемо за период, м²", fmt(p.prodRaw * p.workDays, 0))}
+      ${crow("На руки при таком допущении", rub(p.prodRaw * p.workDays * p.rateC))}
+    </div>`
+      : "";
   return `
+    <p class="small calc-note">Площадь заранее неизвестна: она появляется после построения модели и чехла. Выплата считается только по принятой площади, без сравнения с планом.</p>
     <div class="kpis">
-      ${kpi("На руки", rub(net), "за " + fmt(p.workDays, 0) + " раб. дней")}
+      ${kpi("На руки", rub(net), "за " + fmt(p.fact, 0) + " м² принятой площади")}
       ${kpi("По чеку", rub(check), "налог самозанятого " + rub(check - net))}
-      ${kpi("Выполнение плана", plan > 0 ? fmt((p.fact / plan) * 100, 0) + "%" : "—", fmt(p.fact, 0) + " из " + fmt(plan, 0) + " м²")}
-      ${kpi("В день", fmt(p.fact / p.workDays, 1) + " м²", "план " + fmt(p.prod, 1) + " м²")}
+      ${kpi("В среднем в день", fmt(p.fact / p.workDays, 1) + " м²", "за " + fmt(p.workDays, 0) + " раб. дн., по дням разная")}
+      ${kpi("До ориентира", left > 0 ? fmt(left, 0) + " м²" : "достигнут", rub(TARGET_NET) + " на руки")}
     </div>
     ${warnings.join("")}
-    <div class="rgroup"><h4>Выработка</h4>
-      ${crow("Позиций (по средней площади)", fmt(p.fact / p.area, 1))}
-      ${crow("В неделю, м²", fmt(p.fact / (p.workDays / 5), 0))}
-      ${crow("Отклонение от плана, м²", (p.fact - plan >= 0 ? "+" : "−") + fmt(Math.abs(p.fact - plan), 0))}
+    <div class="rgroup"><h4>Принято за период</h4>
+      ${crow("Площадь, м²", fmt(p.fact, 0))}
+      ${crow("Позиций (оценка по средней площади)", fmt(p.fact / p.area, 1))}
+      ${crow("В среднем в неделю, м²", fmt(p.fact / (p.workDays / 5), 0))}
     </div>
     <div class="rgroup"><h4>Деньги за период</h4>
       ${crow("Ставка на руки, ₽/м²", fmt(p.rateC, 0))}
       ${crow("Ставка по чеку, ₽/м²", fmt(gross, 1))}
       ${crow("Налог самозанятого", rub(check - net))}
       ${crow("На руки", rub(net))}
-      ${crow("На руки при плановой выработке", rub(plan * p.rateC))}
     </div>
+    ${forecast}
   `;
 }
 
@@ -366,12 +383,12 @@ const VARS = {
   Rk: { sym: "СП", kind: "in", name: "Ставка проверки" },
   Tu: { sym: "НУ", kind: "in", name: "Налог подрядчика (УСН), доля" },
   Tn: { sym: "НС", kind: "in", name: "Налог самозанятого, доля" },
-  P: { sym: "ВИ", kind: "in", name: "Выработка исполнителя" },
-  D: { sym: "РД", kind: "in", name: "Рабочих дней в месяц" },
+  P: { sym: "ВИ", kind: "in", name: "Допущение: выработка исполнителя, м² в день" },
+  D: { sym: "РД", kind: "in", name: "Рабочих дней в периоде" },
   L: { sym: "ЗГ", kind: "in", name: "Целевая загрузка, доля" },
   IG: { sym: "ИГ", kind: "in", name: "Исполнителей в группе" },
   RS: { sym: "РС", kind: "in", name: "Рабочих дней до срока заказчика" },
-  FV: { sym: "ФВ", kind: "in", name: "Фактическая выработка, м²" },
+  FV: { sym: "ФВ", kind: "in", name: "Фактическая выработка (принятая площадь), м²" },
   Z: { sym: "ПМ", kind: "mid", name: "Позиций в месяц" },
   N: { sym: "ИС", kind: "mid", name: "Исполнителей нужно на объём" },
   Q: { sym: "МИ", kind: "mid", name: "М² на одного исполнителя" },
@@ -419,18 +436,23 @@ function formulaRows(p, N, Q) {
   const gross = rateGross(p);
   const rate = contractRate(p);
   if (isSolo()) {
-    const plan = p.prod * p.workDays;
-    return [
+    const rows = [
       ["Ставка по чеку, ₽/м²", "{SB} = {Rc} / (1 − {Tn})", fmt(gross, 1)],
       ["На руки за период", "{FV} × {Rc}", rub(p.fact * p.rateC)],
       ["По чеку за период", "{FV} × {SB}", rub(p.fact * gross)],
       ["Налог самозанятого", "{FV} × ({SB} − {Rc})", rub(p.fact * (gross - p.rateC))],
-      ["Выработка в день, м²", "{FV} / {D}", fmt(p.fact / p.workDays, 1)],
-      ["Выработка в неделю, м²", "{FV} / ({D} / 5), 5 рабочих дней в неделю", fmt(p.fact / (p.workDays / 5), 0)],
-      ["Выполнение плана", "{FV} / ({P} × {D})", plan > 0 ? fmt((p.fact / plan) * 100, 0) + "%" : "—"],
-      ["Позиций по средней площади", "{FV} / {S}", fmt(p.fact / p.area, 1)],
-      ["На руки при плановой выработке", "{P} × {D} × {Rc}", rub(plan * p.rateC)],
+      ["В среднем в день, м²", "{FV} / {D}", fmt(p.fact / p.workDays, 1)],
+      ["В среднем в неделю, м²", "{FV} / ({D} / 5), 5 рабочих дней в неделю", fmt(p.fact / (p.workDays / 5), 0)],
+      ["Позиций (оценка по средней площади)", "{FV} / {S}", fmt(p.fact / p.area, 1)],
+      ["До ориентира 50 000 ₽ на руки, м²", "50 000 / {Rc} − {FV}, не меньше 0", fmt(Math.max(0, TARGET_NET / p.rateC - p.fact), 0)],
     ];
+    if (p.prodRaw > 0) {
+      rows.push(
+        ["Ожидаемо за период по допущению, м²", "{P} × {D}", fmt(p.prodRaw * p.workDays, 0)],
+        ["На руки при таком допущении", "{P} × {D} × {Rc}", rub(p.prodRaw * p.workDays * p.rateC)]
+      );
+    }
+    return rows;
   }
   const rows = [
     ["Позиций в месяц", "{Z} = {V} / {S}", fmt(p.volume / p.area, 0)],
@@ -460,7 +482,8 @@ function formulaRows(p, N, Q) {
   ];
   if (p.fact > 0) {
     rows.push(
-      ["Факт: выполнение плана", "{FV} / {V}", p.volume > 0 ? fmt((p.fact / p.volume) * 100, 0) + "%" : "—"],
+      ["Факт к заявленному объёму V", "{FV} / {V}", p.volume > 0 ? fmt((p.fact / p.volume) * 100, 0) + "%" : "—"],
+      ["Факт: средняя выработка на исполнителя в день, м²", "{FV} / ({IG} × {D})", fmt(p.fact / (p.team * p.workDays), 1)],
       ["Факт: исполнителям на руки", "{FV} × {Rc}", rub(p.fact * p.rateC)],
       ["Факт: по чекам исполнителей", "{FV} × {SB}", rub(p.fact * gross)],
       ["Факт: стоимость для заказчика", "{FV} × {R2}", rub(p.fact * rate)]
