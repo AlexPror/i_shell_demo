@@ -60,7 +60,7 @@
 <section class="block" id="summary"><div class="wrap"><div class="panel">
   <h2>Резюме</h2>
   <div class="cards">
-    <div class="card"><div class="k">Исполнителю</div><div class="v">500 ₽/м²</div><div class="s">по подтверждённой площади</div></div>
+    <div class="card"><div class="k">Исполнителю</div><div class="v">500 ₽/м²</div><div class="s">на руки, по подтверждённой площади</div></div>
     <div class="card"><div class="k">Проверка и координация</div><div class="v">100 ₽/м²</div><div class="s">одна ставка на все позиции</div></div>
     <div class="card"><div class="k">Объём считаем под группу</div><div class="v">посильный объём</div><div class="s">заказчик распределяет общий объём между всеми конструкторами; мы называем, сколько группа закроет к его срокам</div></div>
     <div class="card"><div class="k">Выработка исполнителя</div><div class="v">6–10 м² в день</div><div class="s">база 6 м², потенциал до 10 м² (уровень штатного сотрудника)</div></div>
@@ -127,7 +127,7 @@
     <table>
       <thead><tr><th>Что оплачивается</th><th class="num">Ставка</th><th>Кому</th><th>Основание</th></tr></thead>
       <tbody>
-        <tr><td>Моделирование оборудования и чехла</td><td class="num">500 ₽/м²</td><td>исполнителю</td><td>подтверждённая площадь чехла</td></tr>
+        <tr><td>Моделирование оборудования и чехла</td><td class="num">500 ₽/м²</td><td>исполнителю на руки</td><td>подтверждённая площадь чехла; налог самозанятого включён в ставку по договору</td></tr>
         <tr><td>Проверка, координация, отчётность</td><td class="num">100 ₽/м²</td><td>руководителю группы</td><td>подтверждённая площадь, 20% от ставки исполнителя</td></tr>
       </tbody>
     </table>
@@ -135,7 +135,7 @@
   <ul>
     <li>Один прайс на все позиции. Деление на «лёгкие» и «сложные» нужно только для очереди и лимита одновременных задач, на оплату оно не влияет.</li>
     <li>Оплата считается по <strong>подтверждённой</strong> площади. Площадь считается единым способом, который фиксируется в договоре.</li>
-    <li>Налоги включаются в ставку за м², указанную в договоре одной цифрой (расчёт в калькуляторе ниже).</li>
+    <li>Налоги подрядчика (УСН) и исполнителей (налог самозанятого) включены в ставку за м² по договору одной цифрой: около 672 ₽/м² при значениях по умолчанию (расчёт в калькуляторе ниже).</li>
   </ul>
 
   <h3>Пример: первая партия из четырёх позиций (иллюстративные значения)</h3>
@@ -150,28 +150,36 @@
 <section class="block" id="calc"><div class="wrap"><div class="panel">
   <h2>Калькулятор потока</h2>
   <p class="small">Меняйте значения: таблицы на странице пересчитываются.</p>
-  <div class="calc-compact">
+  <div class="seg" role="tablist" aria-label="Режим расчёта">
+    <button type="button" role="tab" class="active" aria-selected="true" data-mode="group">Группа исполнителей</button>
+    <button type="button" role="tab" aria-selected="false" data-mode="solo">Один исполнитель</button>
+  </div>
+  <div class="calc-compact" data-mode="group">
     <div class="calc-inputs">
       <div class="cgroup">
         <h4>Объём</h4>
-        <div class="crow"><label for="c-volume">Объём в месяц, м²</label><input id="c-volume" type="number" inputmode="decimal" value="500" min="0"></div>
+        <div class="crow" data-only="group"><label for="c-volume">Объём в месяц, м²</label><input id="c-volume" type="number" inputmode="decimal" value="500" min="0"></div>
         <div class="crow"><label for="c-area">Средняя площадь позиции, м²</label><input id="c-area" type="number" inputmode="decimal" value="4.9" min="0.1" step="0.1"></div>
-        <div class="crow"><label for="c-models">Позиций в программе</label><input id="c-models" type="number" inputmode="decimal" value="500" min="0"></div>
+        <div class="crow" data-only="group"><label for="c-models">Позиций в программе</label><input id="c-models" type="number" inputmode="decimal" value="500" min="0"></div>
       </div>
       <div class="cgroup">
         <h4>Ставки и налоги</h4>
-        <div class="crow"><label for="c-rate-c">Ставка исполнителю, ₽/м²</label><input id="c-rate-c" type="number" inputmode="decimal" value="500" min="0"></div>
-        <div class="crow"><label for="c-rate-k">Ставка проверки, ₽/м²</label><input id="c-rate-k" type="number" inputmode="decimal" value="100" min="0"></div>
-        <div class="crow"><label for="c-tax-usn">Налог подрядчика (УСН), %</label><input id="c-tax-usn" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
+        <div class="crow"><label for="c-rate-c">Ставка исполнителю на руки, ₽/м²</label><input id="c-rate-c" type="number" inputmode="decimal" value="500" min="0"></div>
+        <div class="crow" data-only="group"><label for="c-rate-k">Ставка проверки, ₽/м²</label><input id="c-rate-k" type="number" inputmode="decimal" value="100" min="0"></div>
+        <div class="crow" data-only="group"><label for="c-tax-usn">Налог подрядчика (УСН), %</label><input id="c-tax-usn" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
         <div class="crow"><label for="c-tax-npd">Налог самозанятого, %</label><input id="c-tax-npd" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
       </div>
       <div class="cgroup">
         <h4>Выработка и состав</h4>
         <div class="crow"><label for="c-prod">Выработка, м² в день (6–10)</label><input id="c-prod" type="number" inputmode="decimal" value="6" min="0.5" step="0.5"></div>
         <div class="crow"><label for="c-days">Рабочих дней в месяц</label><input id="c-days" type="number" inputmode="decimal" value="21" min="1" max="31"></div>
-        <div class="crow"><label for="c-load">Целевая загрузка, %</label><input id="c-load" type="number" inputmode="decimal" value="100" min="10" max="100"></div>
-        <div class="crow"><label for="c-team">Исполнителей в группе</label><input id="c-team" type="number" inputmode="decimal" value="5" min="1" step="1"></div>
-        <div class="crow"><label for="c-deadline">Дней до срока заказчика</label><input id="c-deadline" type="number" inputmode="decimal" value="8" min="1" step="1"></div>
+        <div class="crow" data-only="group"><label for="c-load">Целевая загрузка, %</label><input id="c-load" type="number" inputmode="decimal" value="85" min="10" max="100"></div>
+        <div class="crow" data-only="group"><label for="c-team">Исполнителей в группе</label><input id="c-team" type="number" inputmode="decimal" value="5" min="1" step="1"></div>
+        <div class="crow" data-only="group"><label for="c-deadline">Дней до срока заказчика</label><input id="c-deadline" type="number" inputmode="decimal" value="8" min="1" step="1"></div>
+      </div>
+      <div class="cgroup">
+        <h4>Факт за период</h4>
+        <div class="crow"><label for="c-fact">Фактическая выработка, м²</label><input id="c-fact" type="number" inputmode="decimal" value="500" min="0" step="1"></div>
       </div>
     </div>
     <div class="calc-results">
@@ -198,7 +206,7 @@
 <section class="block" id="volumes"><div class="wrap"><div class="panel">
   <h2>3. План на месяц: <span id="plan-days">21</span> рабочий день</h2>
   <p>
-    Группа из <strong id="plan-team">5</strong> исполнителей, выработка <strong id="plan-prod">6</strong> м² в день на человека
+    Группа из <strong id="plan-team">5</strong> <span id="plan-team-word">исполнителей</span>, выработка <strong id="plan-prod">6</strong> м² в день на человека
     (значения берутся из калькулятора выше). Период разгона не закладываем: все работают на полной нагрузке с первой партии.
     Объём заказчик распределяет между всеми своими конструкторами, поэтому ниже показано, сколько наша группа физически закрывает
     и сколько из этого можно гарантировать в договоре.
@@ -238,14 +246,8 @@
       <tbody id="scen-body"></tbody>
     </table>
   </div>
-  <div class="callout">
-    <strong>Состав не меняется.</strong> Больше пяти исполнителей не нужно: при росте скорости или работе в выходные растёт мощность группы и доход каждого.
-    Для переговоров называем объём по среднему показателю 6 м² в день при 5 днях в неделю, а всё, что группа сделает сверх, берём дополнительным объёмом.
-  </div>
-  <div class="callout warn">
-    <strong>Минимум для исполнителя: около 100 м² в месяц</strong> (около 50 тыс. ₽ при 500 ₽/м²). Если заказчик распределит нам меньше,
-    группу надо сокращать, а не растягивать объём на всех: иначе люди уходят.
-  </div>
+
+  <p class="small">При росте выработки или работе в выходные растёт мощность группы; состав группы остаётся прежним.</p>
 
   <h3>Что нужно от заказчика</h3>
   <ul>
@@ -272,7 +274,6 @@
     <li><strong>Выработка:</strong> 6–10 м² в день на исполнителя. База 6 м² в день при 5 днях в неделю: это подработка, поэтому показатель средний, часть работы приходится на выходные (около 126 м² в месяц и около 63 тыс. ₽ при полной загрузке), потенциал 10 м² в день, как у штатного сотрудника по оценке главного конструктора (около 10 м² за 8 часов). Рост даёт опыт, эталонные файлы и чек-лист самопроверки.</li>
     <li><strong>Правило состава:</strong> число исполнителей = объём / (выработка × рабочие дни × целевая загрузка), округляется вверх. Для 500 м² в месяц при 6 м² в день это 4 человека, при 10 м² в день 3 человека. Остальных держим в резерве на пики.</li>
     <li><strong>Что можно гарантировать по договору:</strong> не больше 85% мощности группы (мощность = исполнителей × выработка × рабочие дни). Остальные 15% запас на правки, ожидание данных и непредвиденное.</li>
-    <li>Если людей больше, чем нужно объёму, доход каждого падает и люди уходят, поэтому состав не раздуваем.</li>
     <li><strong>Лимит одновременных позиций: 2 слота.</strong> Позиция занимает столько слотов, сколько рабочих дней ей отведено в таблице сроков: при выработке 6 м² в день одна позиция до 12 м² или две позиции до 6 м².</li>
     <li>Очередь по порядку поступления. Цена позиции видна всем, формула одна. Один пропуск позиции в неделю.</li>
     <li>Руководитель группы сам берёт в работу только позиции, которые другие не могут сделать, обучающие и эталонные, а также когда очередь пуста.</li>
@@ -384,7 +385,7 @@
       <thead><tr><th>Риск</th><th>Мера</th></tr></thead>
       <tbody>
         <tr><td>Заказов меньше плана</td><td>Очередь не короче недели вперёд, иначе исполнители простаивают. Если после первой недели принято меньше 60% плановой выработки группы, состав сокращается до размера фактического объёма, новых людей не набираем.</td></tr>
-        <tr><td>Заказчик перераспределяет объём между конструкторами</td><td>Согласованный минимум объёма группы, письменный график, уведомление за 2 недели, приоритет по скорости и качеству; лишних людей в группу не набираем.</td></tr>
+        <tr><td>Заказчик перераспределяет объём между конструкторами</td><td>Согласованный минимум объёма группы, письменный график, уведомление за 2 недели, приоритет по скорости и качеству.</td></tr>
         <tr><td>Задержка приёмки или оплаты</td><td>Сроки в договоре, правило «молчание считается принятием», пересмотр условий.</td></tr>
         <tr><td>Жёсткие сроки на согласованный объём</td><td>Обязательство не выше 85% мощности состава, резерв людей на пики, график привязан к передаче данных, потолок штрафа в договоре.</td></tr>
         <tr><td>Изменение ТЗ внутри заявки</td><td>Версии общих документов с датой; изменения оформляются новой версией и оплачиваются отдельно.</td></tr>
@@ -403,7 +404,7 @@
     <li>Получить список позиций программы с площадью и желаемыми сроками.</li>
     <li>Подписать рамочный договор и соглашение о неразглашении.</li>
     <li>Передать первую партию (4 позиции) и очередь на 1–2 недели вперёд, запустить исполнителей сразу на полной нагрузке.</li>
-    <li>Сверить с заказчиком срок середины ноября: объём к дате, фактическую выработку, долю правок. При выработке выше 6 м² в день просить больше объёма, а не расширять группу.</li>
+    <li>Сверить с заказчиком срок середины ноября: объём к дате, фактическую выработку, долю правок.</li>
   </ol>
 </div></div></section>
 

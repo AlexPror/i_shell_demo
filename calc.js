@@ -30,6 +30,11 @@ const SIGNED = (n) => {
   return `<span class="${cls}">${sign}${rub(Math.abs(n))}</span>`;
 };
 
+/* Режим калькулятора: группа исполнителей или один исполнитель.
+   Фактическая выработка хранится отдельно для каждого режима. */
+const MODE_STATE = { mode: "group", fact: { group: "500", solo: "120" } };
+const isSolo = () => MODE_STATE.mode === "solo";
+
 /* Параметры расчёта из полей калькулятора */
 function params() {
   return {
@@ -41,9 +46,10 @@ function params() {
     taxNpd: num("c-tax-npd") / 100,   // налог самозанятого, доля
     prod: num("c-prod") || 1,         // м2 в рабочий день у исполнителя
     workDays: num("c-days") || 21,    // рабочих дней в месяц
-    load: (num("c-load") || 95) / 100, // целевая загрузка исполнителя, доля
+    load: (num("c-load") || 85) / 100, // целевая загрузка исполнителя, доля
     models: num("c-models"),          // число позиций в программе
-    team: num("c-team") || 1,         // исполнителей в группе сейчас
+    team: isSolo() ? 1 : num("c-team") || 1, // исполнителей: в режиме «один исполнитель» всегда 1
+    fact: num("c-fact"),              // фактическая выработка за период, м2
     deadline: num("c-deadline") || 1, // рабочих дней до срока заказчика
   };
 }
@@ -58,74 +64,130 @@ const loadShare = (p, m2PerPerson, days) => m2PerPerson / (p.prod * days);
 /* Доля мощности группы, которую можно гарантировать в договоре */
 const GUARANTEE = 0.85;
 
-/* Ставка по договору, руб/м2 */
-const contractRate = (p, withNpd) => {
-  const base = withNpd ? p.rateC / (1 - p.taxNpd) : p.rateC;
-  return (base + p.rateK) / (1 - p.taxUsn);
-};
+/* Ставка исполнителю по чеку (до налога самозанятого), руб/м2: на руки он получает rateC */
+const rateGross = (p) => p.rateC / (1 - p.taxNpd);
+
+/* Ставка по договору, руб/м2: оба налога (самозанятого и УСН) входят в цену */
+const contractRate = (p) => (rateGross(p) + p.rateK) / (1 - p.taxUsn);
+
+const kpi = (k, v, s) =>
+  `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+const crow = (k, v) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`;
 
 function renderCalc() {
-  const p = params();
+  const out = isSolo() ? soloHtml(params()) : groupHtml(params());
+  $("calc-out").innerHTML = out;
+}
+
+function groupHtml(p) {
   const n = peopleFor(p, p.volume, p.workDays);          // сколько исполнителей нужно на объём
   const per = p.volume / n;                              // м2 на одного из нужных исполнителей
   const items = p.volume / p.area;
-  const rate1 = contractRate(p, false);
-  const rate2 = contractRate(p, true);
-  const monthlyCost = p.volume * rate2;
+  const rate = contractRate(p);
+  const gross = rateGross(p);
+  const cost = p.volume * rate;
   const share = loadShare(p, per, p.workDays);
   const cap = p.team * p.prod * p.workDays;              // мощность группы в месяц
   const capDeadline = p.team * p.prod * p.deadline;      // мощность группы до срока заказчика
   const guarantee = cap * GUARANTEE;
   const guaranteeDeadline = capDeadline * GUARANTEE;
+  const people = (k) => plural(k, "исполнитель", "исполнителя", "исполнителей");
 
   const warnings = [];
   if (n > p.team) {
     warnings.push(
-      `<div class="callout bad"><strong>Людей не хватает.</strong> На объём ${fmt(p.volume, 0)} м² нужно ${n} ${plural(n, "исполнитель", "исполнителя", "исполнителей")}, в группе ${p.team}. Либо берём меньше объёма, либо добираем людей, либо растёт выработка.</div>`
+      `<div class="callout bad"><strong>Людей не хватает.</strong> На объём ${fmt(p.volume, 0)} м² нужно ${n} ${people(n)}, в группе ${p.team}.</div>`
     );
   } else if (p.volume > guarantee) {
     warnings.push(
-      `<div class="callout warn"><strong>Объём выше 85% мощности группы</strong> (${fmt(guarantee, 0)} м²). Гарантировать в договоре столько нельзя: нет запаса на правки и ожидание данных.</div>`
+      `<div class="callout warn"><strong>Объём выше 85% мощности группы</strong> (${fmt(guarantee, 0)} м²): нет запаса на правки и ожидание данных.</div>`
     );
   } else {
     warnings.push(
-      `<div class="callout ok"><strong>Объём в пределах мощности группы.</strong> Для него нужно ${n} ${plural(n, "исполнитель", "исполнителя", "исполнителей")} из ${p.team}${n < p.team ? ", остальные в резерве или берут больше" : ""}.</div>`
+      `<div class="callout ok"><strong>Объём в пределах мощности группы.</strong> Нужно ${n} ${people(n)} из ${p.team}.</div>`
     );
   }
   if (per * p.rateC < 50000 && n <= p.team) {
     warnings.push(
-      `<div class="callout warn">Доход одного исполнителя при таком объёме ${rub(per * p.rateC)} в месяц: меньше ориентира 50 000 ₽. Нужен больший объём или меньше людей.</div>`
+      `<div class="callout warn">Доход одного исполнителя при таком объёме ${rub(per * p.rateC)} в месяц: меньше ориентира 50 000 ₽.</div>`
     );
   }
 
-  const kpi = (k, v, s) =>
-    `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
-  const row = (k, v) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`;
+  let fact = "";
+  if (p.fact > 0) {
+    fact = `<div class="rgroup"><h4>Факт за период</h4>
+      ${crow("Фактически закрыто группой, м²", fmt(p.fact, 0))}
+      ${crow("Выполнение плана", p.volume > 0 ? fmt((p.fact / p.volume) * 100, 0) + "%" : "—")}
+      ${crow("Исполнителям на руки", rub(p.fact * p.rateC))}
+      ${crow("По чекам исполнителей", rub(p.fact * gross))}
+      ${crow("Проверка и координация", rub(p.fact * p.rateK))}
+      ${crow("Стоимость для заказчика", rub(p.fact * rate))}
+      ${crow("На одного исполнителя: м² / на руки", fmt(p.fact / p.team, 0) + " / " + rub((p.fact / p.team) * p.rateC))}
+    </div>`;
+  }
 
-  $("calc-out").innerHTML = `
+  return `
     <div class="kpis">
       ${kpi("Исполнителей нужно", n, "из " + p.team + " в группе")}
-      ${kpi("Доход исполнителя", rub(per * p.rateC), "в месяц")}
+      ${kpi("На руки исполнителю", rub(per * p.rateC), "в месяц, по чеку " + rub(per * gross))}
       ${kpi("Загрузка", fmt(share * 100, 0) + "%", fmt(per, 0) + " м² в месяц на человека")}
       ${kpi("Гарантия в договоре", fmt(guarantee, 0) + " м²", "85% мощности в месяц")}
     </div>
     ${warnings.join("")}
     <div class="rgroup"><h4>Объём</h4>
-      ${row("Позиций в месяц", fmt(items, 0))}
-      ${row("Позиций в рабочий день", fmt(items / p.workDays, 1))}
-      ${row("На исполнителя в неделю, м²", fmt(per / (p.workDays / 5), 0))}
+      ${crow("Позиций в месяц", fmt(items, 0))}
+      ${crow("Позиций в рабочий день", fmt(items / p.workDays, 1))}
+      ${crow("На исполнителя в неделю, м²", fmt(per / (p.workDays / 5), 0))}
     </div>
     <div class="rgroup"><h4>Мощность группы</h4>
-      ${row("В месяц, м²", fmt(cap, 0))}
-      ${row("До срока заказчика, м²", fmt(capDeadline, 0))}
-      ${row("Гарантия к сроку (85%), м² / позиций", fmt(guaranteeDeadline, 0) + " / " + fmt(guaranteeDeadline / p.area, 0))}
+      ${crow("В месяц, м²", fmt(cap, 0))}
+      ${crow("До срока заказчика, м²", fmt(capDeadline, 0))}
+      ${crow("Гарантия к сроку (85%), м² / позиций", fmt(guaranteeDeadline, 0) + " / " + fmt(guaranteeDeadline / p.area, 0))}
     </div>
-    <div class="rgroup"><h4>Деньги</h4>
-      ${row("Фонд оплаты исполнителям", rub(p.volume * p.rateC))}
-      ${row("Проверка и координация", rub(p.volume * p.rateK))}
-      ${row("Ставка по договору, ₽/м² (УСН)", fmt(rate1, 0))}
-      ${row("То же + налог самозанятых, ₽/м²", fmt(rate2, 0))}
-      ${row("Расходы заказчика в месяц (вторая ставка)", rub(monthlyCost))}
+    <div class="rgroup"><h4>Деньги в месяц</h4>
+      ${crow("Исполнителям на руки", rub(p.volume * p.rateC))}
+      ${crow("Налог самозанятых (в ставке)", rub(p.volume * (gross - p.rateC)))}
+      ${crow("Проверка и координация", rub(p.volume * p.rateK))}
+      ${crow("Налог УСН (в ставке)", rub(cost * p.taxUsn))}
+      ${crow("Ставка по договору, ₽/м²", fmt(rate, 0))}
+      ${crow("Стоимость для заказчика", rub(cost))}
+    </div>
+    ${fact}
+  `;
+}
+
+function soloHtml(p) {
+  const gross = rateGross(p);
+  const plan = p.prod * p.workDays;            // плановая выработка за период
+  const net = p.fact * p.rateC;                // на руки
+  const check = p.fact * gross;                // по чеку
+  const warnings = [];
+  if (p.fact > plan) {
+    warnings.push(`<div class="callout ok">Факт выше плана на ${fmt(p.fact - plan, 0)} м².</div>`);
+  } else if (net < 50000) {
+    warnings.push(
+      `<div class="callout warn">На руки ${rub(net)} за период: меньше ориентира 50 000 ₽ (около 100 м²).</div>`
+    );
+  }
+  return `
+    <div class="kpis">
+      ${kpi("На руки", rub(net), "за " + fmt(p.workDays, 0) + " раб. дней")}
+      ${kpi("По чеку", rub(check), "налог самозанятого " + rub(check - net))}
+      ${kpi("Выполнение плана", plan > 0 ? fmt((p.fact / plan) * 100, 0) + "%" : "—", fmt(p.fact, 0) + " из " + fmt(plan, 0) + " м²")}
+      ${kpi("В день", fmt(p.fact / p.workDays, 1) + " м²", "план " + fmt(p.prod, 1) + " м²")}
+    </div>
+    ${warnings.join("")}
+    <div class="rgroup"><h4>Выработка</h4>
+      ${crow("Позиций (по средней площади)", fmt(p.fact / p.area, 1))}
+      ${crow("В неделю, м²", fmt(p.fact / (p.workDays / 5), 0))}
+      ${crow("Отклонение от плана, м²", (p.fact - plan >= 0 ? "+" : "−") + fmt(Math.abs(p.fact - plan), 0))}
+    </div>
+    <div class="rgroup"><h4>Деньги за период</h4>
+      ${crow("Ставка на руки, ₽/м²", fmt(p.rateC, 0))}
+      ${crow("Ставка по чеку, ₽/м²", fmt(gross, 1))}
+      ${crow("Налог самозанятого", rub(check - net))}
+      ${crow("На руки", rub(net))}
+      ${crow("На руки при плановой выработке", rub(plan * p.rateC))}
     </div>
   `;
 }
@@ -166,6 +228,7 @@ function renderPlan() {
     </tr>`);
   $("plan-body").innerHTML = rows.join("");
   $("plan-team").textContent = fmt(p.team, 0);
+  if ($("plan-team-word")) $("plan-team-word").textContent = plural(p.team, "исполнителя", "исполнителей", "исполнителей");
   $("plan-prod").textContent = fmt(p.prod, 1);
   $("plan-days").textContent = fmt(days, 0);
   $("plan-deadline").textContent = fmt(p.deadline, 0);
@@ -291,6 +354,7 @@ const FIELD_VARS = {
   "c-load": "L",
   "c-team": "IG",
   "c-deadline": "RS",
+  "c-fact": "FV",
 };
 
 /* Обозначения: sym - как в формуле, kind: in - поле ввода, mid - промежуточная величина, const - константа */
@@ -298,7 +362,7 @@ const VARS = {
   V: { sym: "V", kind: "in", name: "Объём в месяц" },
   S: { sym: "S", kind: "in", name: "Площадь позиции (средняя)" },
   M: { sym: "ПП", kind: "in", name: "Позиций в программе" },
-  Rc: { sym: "СИ", kind: "in", name: "Ставка исполнителю" },
+  Rc: { sym: "СИ", kind: "in", name: "Ставка исполнителю на руки" },
   Rk: { sym: "СП", kind: "in", name: "Ставка проверки" },
   Tu: { sym: "НУ", kind: "in", name: "Налог подрядчика (УСН), доля" },
   Tn: { sym: "НС", kind: "in", name: "Налог самозанятого, доля" },
@@ -307,13 +371,14 @@ const VARS = {
   L: { sym: "ЗГ", kind: "in", name: "Целевая загрузка, доля" },
   IG: { sym: "ИГ", kind: "in", name: "Исполнителей в группе" },
   RS: { sym: "РС", kind: "in", name: "Рабочих дней до срока заказчика" },
+  FV: { sym: "ФВ", kind: "in", name: "Фактическая выработка, м²" },
   Z: { sym: "ПМ", kind: "mid", name: "Позиций в месяц" },
   N: { sym: "ИС", kind: "mid", name: "Исполнителей нужно на объём" },
   Q: { sym: "МИ", kind: "mid", name: "М² на одного исполнителя" },
   W: { sym: "МГ", kind: "mid", name: "Мощность группы в месяц" },
   X: { sym: "МС", kind: "mid", name: "Мощность группы до срока" },
-  R1: { sym: "СД1", kind: "mid", name: "Ставка по договору, налог УСН" },
-  R2: { sym: "СД2", kind: "mid", name: "Ставка по договору, налог УСН и самозанятых" },
+  SB: { sym: "СИч", kind: "mid", name: "Ставка исполнителю по чеку (с налогом самозанятого)" },
+  R2: { sym: "СД", kind: "mid", name: "Ставка по договору (налоги УСН и самозанятых внутри)" },
   G: { sym: "ДГ", kind: "const", name: "Доля мощности для гарантии (0,85)" },
 };
 
@@ -331,6 +396,7 @@ function formulaValues(p) {
     P: fmt(p.prod, 1),
     D: fmt(p.workDays, 0),
     L: fmt(p.load, 2),
+    FV: fmt(p.fact, 0),
     Z: fmt(p.volume / p.area, 0),
     N: String(N),
     Q: fmt(Q, 0),
@@ -338,8 +404,8 @@ function formulaValues(p) {
     RS: fmt(p.deadline, 0),
     W: fmt(p.team * p.prod * p.workDays, 0),
     X: fmt(p.team * p.prod * p.deadline, 0),
-    R1: fmt(contractRate(p, false), 0),
-    R2: fmt(contractRate(p, true), 0),
+    SB: fmt(rateGross(p), 1),
+    R2: fmt(contractRate(p), 0),
     G: fmt(GUARANTEE, 2),
   };
   return { N, Q, val };
@@ -347,6 +413,61 @@ function formulaValues(p) {
 
 const chip = (key, text) =>
   `<span class="fx fx-${VARS[key].kind} fx-${key}">${text}</span>`;
+
+/* Строки таблицы формул: [показатель, формула, результат] */
+function formulaRows(p, N, Q) {
+  const gross = rateGross(p);
+  const rate = contractRate(p);
+  if (isSolo()) {
+    const plan = p.prod * p.workDays;
+    return [
+      ["Ставка по чеку, ₽/м²", "{SB} = {Rc} / (1 − {Tn})", fmt(gross, 1)],
+      ["На руки за период", "{FV} × {Rc}", rub(p.fact * p.rateC)],
+      ["По чеку за период", "{FV} × {SB}", rub(p.fact * gross)],
+      ["Налог самозанятого", "{FV} × ({SB} − {Rc})", rub(p.fact * (gross - p.rateC))],
+      ["Выработка в день, м²", "{FV} / {D}", fmt(p.fact / p.workDays, 1)],
+      ["Выработка в неделю, м²", "{FV} / ({D} / 5), 5 рабочих дней в неделю", fmt(p.fact / (p.workDays / 5), 0)],
+      ["Выполнение плана", "{FV} / ({P} × {D})", plan > 0 ? fmt((p.fact / plan) * 100, 0) + "%" : "—"],
+      ["Позиций по средней площади", "{FV} / {S}", fmt(p.fact / p.area, 1)],
+      ["На руки при плановой выработке", "{P} × {D} × {Rc}", rub(plan * p.rateC)],
+    ];
+  }
+  const rows = [
+    ["Позиций в месяц", "{Z} = {V} / {S}", fmt(p.volume / p.area, 0)],
+    ["Позиций в рабочий день", "{Z} / {D}", fmt(p.volume / p.area / p.workDays, 1)],
+    ["Исполнителей нужно на объём", "{N} = ⌈ {V} / ({P} × {D} × {L}) ⌉, не меньше 1", String(N)],
+    ["М² на одного исполнителя в месяц", "{Q} = {V} / {N}", fmt(Q, 0)],
+    ["М² на одного исполнителя в неделю", "{Q} / ({D} / 5), 5 рабочих дней в неделю", fmt(Q / (p.workDays / 5), 0)],
+    ["На руки исполнителю в месяц", "{Q} × {Rc}", rub(Q * p.rateC)],
+    ["Загрузка исполнителя", "{Q} / ({P} × {D})", fmt((Q / (p.prod * p.workDays)) * 100, 0) + "%"],
+    ["Мощность группы, м² в месяц", "{W} = {IG} × {P} × {D}", fmt(p.team * p.prod * p.workDays, 0)],
+    ["Объём для гарантии в договоре, м² в месяц", "{W} × {G}", fmt(p.team * p.prod * p.workDays * GUARANTEE, 0)],
+    ["Мощность группы до срока заказчика, м²", "{X} = {IG} × {P} × {RS}", fmt(p.team * p.prod * p.deadline, 0)],
+    ["Гарантия к сроку заказчика, м²", "{X} × {G}", fmt(p.team * p.prod * p.deadline * GUARANTEE, 0)],
+    ["Ставка исполнителю по чеку, ₽/м²", "{SB} = {Rc} / (1 − {Tn})", fmt(gross, 1)],
+    ["Ставка по договору, ₽/м²", "{R2} = ({SB} + {Rk}) / (1 − {Tu})", fmt(rate, 0)],
+    ["Исполнителям на руки", "{V} × {Rc}", rub(p.volume * p.rateC)],
+    ["Налог самозанятых (в ставке)", "{V} × ({SB} − {Rc})", rub(p.volume * (gross - p.rateC))],
+    ["Проверка и координация", "{V} × {Rk}", rub(p.volume * p.rateK)],
+    ["Налог УСН (в ставке)", "{V} × {R2} × {Tu}", rub(p.volume * rate * p.taxUsn)],
+    ["Стоимость для заказчика в месяц", "{V} × {R2}", rub(p.volume * rate)],
+    ["Срок закрытия программы, месяцев", "{M} × {S} / {V}", fmt((p.models * p.area) / (p.volume || 1), 1)],
+    [
+      "Срок одной позиции, рабочих дней",
+      "⌈ площадь позиции / {P} ⌉, не меньше 1",
+      fmt(Math.max(1, Math.ceil(p.area / p.prod - 1e-9)), 0) + " (для средней позиции)",
+    ],
+  ];
+  if (p.fact > 0) {
+    rows.push(
+      ["Факт: выполнение плана", "{FV} / {V}", p.volume > 0 ? fmt((p.fact / p.volume) * 100, 0) + "%" : "—"],
+      ["Факт: исполнителям на руки", "{FV} × {Rc}", rub(p.fact * p.rateC)],
+      ["Факт: по чекам исполнителей", "{FV} × {SB}", rub(p.fact * gross)],
+      ["Факт: стоимость для заказчика", "{FV} × {R2}", rub(p.fact * rate)]
+    );
+  }
+  return rows;
+}
 
 function renderFormulas() {
   const host = $("formula-body");
@@ -357,43 +478,21 @@ function renderFormulas() {
   const num_ = (tpl) => tpl.replace(/\{(\w+)\}/g, (_, k) => chip(k, val[k]));
   const res = (text) => `<span class="fx-res">${text}</span>`;
 
-  const rows = [
-    ["Позиций в месяц", "{Z} = {V} / {S}", fmt(p.volume / p.area, 0)],
-    ["Позиций в рабочий день", "{Z} / {D}", fmt(p.volume / p.area / p.workDays, 1)],
-    [
-      "Исполнителей нужно на объём",
-      "{N} = ⌈ {V} / ({P} × {D} × {L}) ⌉, не меньше 1",
-      String(N),
-    ],
-    ["М² на одного исполнителя в месяц", "{Q} = {V} / {N}", fmt(Q, 0)],
-    ["М² на одного исполнителя в неделю", "{Q} / ({D} / 5), 5 рабочих дней в неделю", fmt(Q / (p.workDays / 5), 0)],
-    ["Доход исполнителя в месяц", "{Q} × {Rc}", rub(Q * p.rateC)],
-    ["Загрузка исполнителя", "{Q} / ({P} × {D})", fmt((Q / (p.prod * p.workDays)) * 100, 0) + "%"],
-    ["Мощность группы, м² в месяц", "{W} = {IG} × {P} × {D}", fmt(p.team * p.prod * p.workDays, 0)],
-    ["Объём для гарантии в договоре, м² в месяц", "{W} × {G}", fmt(p.team * p.prod * p.workDays * GUARANTEE, 0)],
-    ["Мощность группы до срока заказчика, м²", "{X} = {IG} × {P} × {RS}", fmt(p.team * p.prod * p.deadline, 0)],
-    ["Гарантия к сроку заказчика, м²", "{X} × {G}", fmt(p.team * p.prod * p.deadline * GUARANTEE, 0)],
-    ["Фонд оплаты исполнителям", "{V} × {Rc}", rub(p.volume * p.rateC)],
-    ["Проверка и координация", "{V} × {Rk}", rub(p.volume * p.rateK)],
-    ["Ставка по договору, ₽/м² (налог УСН)", "{R1} = ({Rc} + {Rk}) / (1 − {Tu})", fmt(contractRate(p, false), 0)],
-    [
-      "Ставка по договору, ₽/м² (налог УСН и самозанятых)",
-      "{R2} = ({Rc} / (1 − {Tn}) + {Rk}) / (1 − {Tu})",
-      fmt(contractRate(p, true), 0),
-    ],
-    ["Расходы заказчика в месяц", "{V} × {R2}", rub(p.volume * contractRate(p, true))],
-    ["Срок закрытия программы, месяцев", "{M} × {S} / {V}", fmt((p.models * p.area) / (p.volume || 1), 1)],
-    ["Срок одной позиции, рабочих дней", "⌈ площадь позиции / {P} ⌉, не меньше 1", fmt(Math.max(1, Math.ceil(p.area / p.prod - 1e-9)), 0) + " (для средней позиции)"],
-  ].map(([name, f, r]) => {
-    const f1 = f;
-    return `<tr><td>${name}</td><td class="fx-line">${sym(f1)}</td><td class="fx-line">${num_(f1)}</td><td class="num">${res(r)}</td></tr>`;
-  });
-  host.innerHTML = rows.join("");
+  const data = formulaRows(p, N, Q);
+  host.innerHTML = data
+    .map(
+      ([name, f, r]) =>
+        `<tr><td>${name}</td><td class="fx-line">${sym(f)}</td><td class="fx-line">${num_(f)}</td><td class="num">${res(r)}</td></tr>`
+    )
+    .join("");
 
-  $("formula-legend").innerHTML =
-    Object.keys(VARS)
-      .map((k) => `<span class="fx-leg">${chip(k, VARS[k].sym)} ${VARS[k].name}</span>`)
-      .join("");
+  // легенда: только обозначения, которые есть в текущих формулах
+  const used = new Set();
+  data.forEach(([, f]) => f.replace(/\{(\w+)\}/g, (_, k) => used.add(k)));
+  $("formula-legend").innerHTML = Object.keys(VARS)
+    .filter((k) => used.has(k))
+    .map((k) => `<span class="fx-leg">${chip(k, VARS[k].sym)} ${VARS[k].name}</span>`)
+    .join("");
 }
 
 /* Цветные метки у полей калькулятора */
@@ -422,7 +521,29 @@ function renderAll() {
   if (typeof window.labelTables === "function") window.labelTables();
 }
 
+/* Переключатель режима: группа / один исполнитель */
+function setMode(mode) {
+  const factEl = $("c-fact");
+  if (factEl) {
+    MODE_STATE.fact[MODE_STATE.mode] = factEl.value;
+    factEl.value = MODE_STATE.fact[mode];
+  }
+  MODE_STATE.mode = mode;
+  const box = document.querySelector(".calc-compact");
+  if (box) box.setAttribute("data-mode", mode);
+  document.querySelectorAll(".seg button").forEach((b) => {
+    const on = b.getAttribute("data-mode") === mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    b.tabIndex = on ? 0 : -1;
+  });
+  renderAll();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".seg button").forEach((b) => {
+    b.addEventListener("click", () => setMode(b.getAttribute("data-mode")));
+  });
   decorateFields();
   document.querySelectorAll(".calc-grid input, .calc-compact input").forEach((el) => {
     el.addEventListener("input", renderAll);
