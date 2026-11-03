@@ -97,7 +97,8 @@ function renderCalc() {
     <div class="item"><div class="k">Позиций в месяц</div><div class="v">${fmt(items, 0)}</div></div>
     <div class="item"><div class="k">Позиций в рабочий день</div><div class="v">${fmt(items / p.workDays, 1)}</div></div>
     <div class="item"><div class="k">Исполнителей в основном составе</div><div class="v">${n}</div></div>
-    <div class="item"><div class="k">На одного исполнителя, м²</div><div class="v">${fmt(per, 0)}</div></div>
+    <div class="item"><div class="k">На одного исполнителя в месяц, м²</div><div class="v">${fmt(per, 0)}</div></div>
+    <div class="item"><div class="k">На одного исполнителя в неделю, м²</div><div class="v">${fmt(per / (p.workDays / 5), 0)}</div></div>
     <div class="item"><div class="k">Доход исполнителя в месяц</div><div class="v">${rub(per * p.rateC)}</div></div>
     <div class="item"><div class="k">Загрузка исполнителя</div><div class="v">${fmt(share * 100, 0)}%</div></div>
     <div class="item"><div class="k">Мощность этого состава, м² в месяц</div><div class="v">${fmt(n * p.prod * p.workDays, 0)}</div></div>
@@ -114,13 +115,13 @@ function renderCalc() {
 /* Этапы: объём задан сразу на полной нагрузке, без периода разгона */
 const STAGES = [
   {
-    name: "Недели 1–2 (запуск на полной нагрузке)",
+    name: "Недели 1–2 (запуск на полной нагрузке, 2 недели)",
     volume: 250,
     days: 10,
     note: "Первая партия из 4 позиций плюс остальная очередь. Первые три позиции каждого новичка проверяются полностью.",
   },
   {
-    name: "Месяц 1 (всего)",
+    name: "Месяц 1 (включая недели 1–2)",
     volume: 500,
     days: 21,
     tag: "target",
@@ -160,11 +161,16 @@ function renderStages() {
     const per = s.volume / n;
     const tag = s.tag ? " " + TAG_HTML[s.tag] : "";
     const cls = s.tag ? ` class="row-${s.tag}"` : "";
+    const weeks = s.days / 5;
+    const teamWeek = s.volume / weeks;
     return `<tr${cls}>
       <td>${s.name}${tag}</td>
+      <td class="num">${fmt(s.days)}</td>
       <td class="num">${fmt(s.volume)}</td>
+      <td class="num">${fmt(teamWeek, 0)}</td>
       <td class="num">${fmt(s.volume / p.area, 0)}</td>
       <td class="num">${n}</td>
+      <td class="num">${fmt(per / weeks, 0)}</td>
       <td>${fmt(per, 0)} м², ${rub(per * p.rateC)}</td>
       <td>${s.note}</td>
     </tr>`;
@@ -247,22 +253,22 @@ const FIELD_VARS = {
 /* Обозначения: sym - как в формуле, kind: in - поле ввода, mid - промежуточная величина, const - константа */
 const VARS = {
   V: { sym: "V", kind: "in", name: "Объём в месяц" },
-  S: { sym: "S", kind: "in", name: "Средняя площадь позиции" },
-  M: { sym: "M", kind: "in", name: "Позиций в программе" },
-  Rc: { sym: "Rи", kind: "in", name: "Ставка исполнителю" },
-  Rk: { sym: "Rп", kind: "in", name: "Ставка проверки" },
-  Tu: { sym: "Tу", kind: "in", name: "Налог подрядчика (УСН), доля" },
-  Tn: { sym: "Tн", kind: "in", name: "Налог самозанятого, доля" },
-  P: { sym: "P", kind: "in", name: "Выработка исполнителя" },
-  D: { sym: "D", kind: "in", name: "Рабочих дней в месяц" },
-  L: { sym: "L", kind: "in", name: "Целевая загрузка, доля" },
-  Z: { sym: "Z", kind: "mid", name: "Позиций в месяц" },
-  N: { sym: "N", kind: "mid", name: "Исполнителей" },
-  Q: { sym: "Q", kind: "mid", name: "М² на одного исполнителя" },
-  W: { sym: "W", kind: "mid", name: "Мощность состава" },
-  R1: { sym: "R₁", kind: "mid", name: "Ставка по договору, налог УСН" },
-  R2: { sym: "R₂", kind: "mid", name: "Ставка по договору, налог УСН и самозанятых" },
-  G: { sym: "G", kind: "const", name: "Доля мощности для гарантии (0,85)" },
+  S: { sym: "S", kind: "in", name: "Площадь позиции (средняя)" },
+  M: { sym: "ПП", kind: "in", name: "Позиций в программе" },
+  Rc: { sym: "СИ", kind: "in", name: "Ставка исполнителю" },
+  Rk: { sym: "СП", kind: "in", name: "Ставка проверки" },
+  Tu: { sym: "НУ", kind: "in", name: "Налог подрядчика (УСН), доля" },
+  Tn: { sym: "НС", kind: "in", name: "Налог самозанятого, доля" },
+  P: { sym: "ВИ", kind: "in", name: "Выработка исполнителя" },
+  D: { sym: "РД", kind: "in", name: "Рабочих дней в месяц" },
+  L: { sym: "ЗГ", kind: "in", name: "Целевая загрузка, доля" },
+  Z: { sym: "ПМ", kind: "mid", name: "Позиций в месяц" },
+  N: { sym: "ИС", kind: "mid", name: "Исполнителей" },
+  Q: { sym: "МИ", kind: "mid", name: "М² на одного исполнителя" },
+  W: { sym: "МС", kind: "mid", name: "Мощность состава" },
+  R1: { sym: "СД1", kind: "mid", name: "Ставка по договору, налог УСН" },
+  R2: { sym: "СД2", kind: "mid", name: "Ставка по договору, налог УСН и самозанятых" },
+  G: { sym: "ДГ", kind: "const", name: "Доля мощности для гарантии (0,85)" },
 };
 
 function formulaValues(p) {
@@ -310,7 +316,8 @@ function renderFormulas() {
       "{N} = ⌈ {V} / ({P} × {D} × {L}) ⌉, не меньше 1",
       String(N),
     ],
-    ["М² на одного исполнителя", "{Q} = {V} / {N}", fmt(Q, 0)],
+    ["М² на одного исполнителя в месяц", "{Q} = {V} / {N}", fmt(Q, 0)],
+    ["М² на одного исполнителя в неделю", "{Q} / ({D} / 5), 5 рабочих дней в неделю", fmt(Q / (p.workDays / 5), 0)],
     ["Доход исполнителя в месяц", "{Q} × {Rc}", rub(Q * p.rateC)],
     ["Загрузка исполнителя", "{Q} / ({P} × {D})", fmt((Q / (p.prod * p.workDays)) * 100, 0) + "%"],
     ["Мощность состава, м² в месяц", "{W} = {N} × {P} × {D}", fmt(N * p.prod * p.workDays, 0)],
