@@ -100,6 +100,8 @@ function renderCalc() {
     <div class="item"><div class="k">На одного исполнителя, м²</div><div class="v">${fmt(per, 0)}</div></div>
     <div class="item"><div class="k">Доход исполнителя в месяц</div><div class="v">${rub(per * p.rateC)}</div></div>
     <div class="item"><div class="k">Загрузка исполнителя</div><div class="v">${fmt(share * 100, 0)}%</div></div>
+    <div class="item"><div class="k">Мощность этого состава, м² в месяц</div><div class="v">${fmt(n * p.prod * p.workDays, 0)}</div></div>
+    <div class="item"><div class="k">Объём, который можно гарантировать в договоре (85% мощности), м²</div><div class="v">${fmt(n * p.prod * p.workDays * 0.85, 0)}</div></div>
     <div class="item"><div class="k">Фонд оплаты исполнителям</div><div class="v">${rub(p.volume * p.rateC)}</div></div>
     <div class="item"><div class="k">Проверка и координация</div><div class="v">${rub(p.volume * p.rateK)}</div></div>
     <div class="item"><div class="k">Ставка по договору, ₽/м² (налог УСН)</div><div class="v">${fmt(rate1, 0)}</div></div>
@@ -172,7 +174,7 @@ function renderStages() {
 
 function renderSpeed() {
   const p = params();
-  const rows = [3, 4, 5, 5.5, 6].map((m2day) => {
+  const rows = [2.5, 3, 4, 5, 6].map((m2day) => {
     const m2 = m2day * p.workDays;
     return `<tr>
       <td>${fmt(m2day, 1)} м² в день</td>
@@ -215,7 +217,7 @@ function renderExample() {
     totalS += pos.s;
     totalC += c;
     totalK += k;
-    const days = Math.max(1, Math.ceil(pos.s / 6 - 1e-9));
+    const days = Math.max(1, Math.ceil(pos.s / 5 - 1e-9));
     return `<tr><td>${pos.name}</td><td class="num">${fmt(pos.s, 1)}</td>
       <td class="num">${days}</td>
       <td class="num">${rub(c)}</td><td class="num">${rub(k)}</td></tr>`;
