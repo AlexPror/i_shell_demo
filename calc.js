@@ -120,7 +120,49 @@ function renderCalc() {
   `;
 }
 
-/* Сценарии выработки: что группа закрывает при разной скорости (6-10 м2 в день) */
+/* План на месяц: группа из ИГ исполнителей, по неделям, накопительно */
+function renderPlan() {
+  const p = params();
+  const days = Math.max(1, Math.round(p.workDays));
+  const rows = [];
+  let done = 0;
+  let cum = 0;
+  let week = 1;
+  while (done < days) {
+    const d = Math.min(5, days - done);
+    const from = done + 1;
+    done += d;
+    const team = p.team * p.prod * d;
+    cum += team;
+    const perPerson = cum / p.team;
+    rows.push(`<tr>
+      <td>Неделя ${week}</td>
+      <td>${from === done ? "день " + from : "дни " + from + "–" + done}</td>
+      <td class="num">${fmt(team, 0)}</td>
+      <td class="num">${fmt(cum, 0)}</td>
+      <td class="num">${fmt(cum / p.area, 0)}</td>
+      <td class="num">${fmt(perPerson, 0)}</td>
+      <td class="num">${rub(perPerson * p.rateC)}</td>
+    </tr>`);
+    week++;
+  }
+  const guarantee = cum * GUARANTEE;
+  rows.push(`<tr class="row-target">
+      <td colspan="3"><strong>Гарантия в договоре (85% мощности)</strong></td>
+      <td class="num"><strong>${fmt(guarantee, 0)}</strong></td>
+      <td class="num"><strong>${fmt(guarantee / p.area, 0)}</strong></td>
+      <td class="num"><strong>${fmt(guarantee / p.team, 0)}</strong></td>
+      <td class="num"><strong>${rub((guarantee / p.team) * p.rateC)}</strong></td>
+    </tr>`);
+  $("plan-body").innerHTML = rows.join("");
+  $("plan-team").textContent = fmt(p.team, 0);
+  $("plan-prod").textContent = fmt(p.prod, 1);
+  $("plan-days").textContent = fmt(days, 0);
+  $("plan-deadline").textContent = fmt(p.deadline, 0);
+  $("plan-deadline-m2").textContent = fmt(p.team * p.prod * p.deadline, 0);
+}
+
+/* Сценарии выработки на месяц (6-10 м2 в день) */
 const SCENARIOS = [
   { prod: 6, tag: "min", label: "базовая оценка" },
   { prod: 8, label: "после библиотеки элементов" },
@@ -134,31 +176,21 @@ const TAG_HTML = {
 
 function renderScenarios() {
   const p = params();
+  const days = Math.max(1, Math.round(p.workDays));
   const rows = SCENARIOS.map((s) => {
-    const q = { ...p, prod: s.prod };
-    const week = s.prod * 5;
-    const teamWeek = p.team * week;
-    const teamDeadline = p.team * s.prod * p.deadline;
-    const teamMonth = p.team * s.prod * p.workDays;
-    const need = peopleFor(q, p.volume, p.workDays);
-    const income = (p.volume / need) * p.rateC;
+    const month = p.team * s.prod * days;
     const tag = s.tag ? " " + TAG_HTML[s.tag] : "";
     const cls = s.tag ? ` class="row-${s.tag}"` : "";
     return `<tr${cls}>
       <td>${fmt(s.prod, 0)} м² в день${tag}<br><span class="small">${s.label}</span></td>
-      <td class="num">${fmt(week, 0)}</td>
-      <td class="num">${fmt(teamWeek, 0)}</td>
-      <td class="num">${fmt(teamDeadline, 0)} (${fmt((teamDeadline * GUARANTEE) / p.area, 0)} поз. при 85%)</td>
-      <td class="num">${fmt(teamMonth, 0)}</td>
-      <td class="num">${fmt(teamMonth * GUARANTEE, 0)}</td>
-      <td class="num">${need}</td>
-      <td class="num">${rub(income)}</td>
+      <td class="num">${fmt(s.prod * 5, 0)}</td>
+      <td class="num">${fmt(month, 0)}</td>
+      <td class="num">${fmt(month * GUARANTEE, 0)}</td>
+      <td class="num">${fmt(month / p.area, 0)}</td>
+      <td class="num">${rub(s.prod * days * p.rateC)}</td>
     </tr>`;
   });
   $("scen-body").innerHTML = rows.join("");
-  $("scen-team").textContent = fmt(p.team, 0);
-  $("scen-deadline").textContent = fmt(p.deadline, 0);
-  $("scen-volume").textContent = fmt(p.volume, 0);
 }
 
 /* Сроки позиций по площади: срок = площадь / выработка, вверх, минимум 1 день */
@@ -369,6 +401,7 @@ function decorateFields() {
 function renderAll() {
   renderCalc();
   renderFormulas();
+  renderPlan();
   renderScenarios();
   renderDueTable();
   renderSpeed();
