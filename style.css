@@ -341,3 +341,7 @@ footer { background: var(--navy-3); color: #b8cddd; padding: 20px 0 30px; font-s
 .calc-grid input.fx-field-P { border-left: 4px solid #2a8a3e; }
 .calc-grid input.fx-field-D { border-left: 4px solid #8a5a2b; }
 .calc-grid input.fx-field-L { border-left: 4px solid #0e3a5a; }
+.fx-IG { --c: #0b7285; }
+.fx-RS { --c: #b5179e; }
+.calc-grid input.fx-field-IG { border-left: 4px solid #0b7285; }
+.calc-grid input.fx-field-RS { border-left: 4px solid #b5179e; }

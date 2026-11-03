@@ -43,6 +43,8 @@ function params() {
     workDays: num("c-days") || 21,    // рабочих дней в месяц
     load: (num("c-load") || 95) / 100, // целевая загрузка исполнителя, доля
     models: num("c-models"),          // число позиций в программе
+    team: num("c-team") || 1,         // исполнителей в группе сейчас
+    deadline: num("c-deadline") || 1, // рабочих дней до срока заказчика
   };
 }
 
@@ -53,6 +55,9 @@ const peopleFor = (p, volume, days) =>
 /* Загрузка исполнителя в долях от его возможной выработки за период */
 const loadShare = (p, m2PerPerson, days) => m2PerPerson / (p.prod * days);
 
+/* Доля мощности группы, которую можно гарантировать в договоре */
+const GUARANTEE = 0.85;
+
 /* Ставка по договору, руб/м2 */
 const contractRate = (p, withNpd) => {
   const base = withNpd ? p.rateC / (1 - p.taxNpd) : p.rateC;
@@ -61,48 +66,51 @@ const contractRate = (p, withNpd) => {
 
 function renderCalc() {
   const p = params();
-  const n = peopleFor(p, p.volume, p.workDays);
-  const per = p.volume / n;
+  const n = peopleFor(p, p.volume, p.workDays);          // сколько исполнителей нужно на объём
+  const per = p.volume / n;                              // м2 на одного из нужных исполнителей
   const items = p.volume / p.area;
   const rate1 = contractRate(p, false);
   const rate2 = contractRate(p, true);
   const monthlyCost = p.volume * rate2;
   const share = loadShare(p, per, p.workDays);
+  const cap = p.team * p.prod * p.workDays;              // мощность группы в месяц
+  const capDeadline = p.team * p.prod * p.deadline;      // мощность группы до срока заказчика
+  const guarantee = cap * GUARANTEE;
+  const guaranteeDeadline = capDeadline * GUARANTEE;
 
   const warnings = [];
-  if (p.volume < 250) {
+  if (n > p.team) {
     warnings.push(
-      '<div class="callout bad"><strong>Ниже 250 м² в месяц.</strong> Группа из нескольких человек не нужна: объём закрывают два исполнителя.</div>'
+      `<div class="callout bad"><strong>Людей не хватает.</strong> На объём ${fmt(p.volume, 0)} м² нужно ${n} ${plural(n, "исполнитель", "исполнителя", "исполнителей")}, в группе ${p.team}. Либо берём меньше объёма, либо добираем людей, либо растёт выработка.</div>`
     );
-  } else if (p.volume < 400) {
+  } else if (p.volume > guarantee) {
     warnings.push(
-      '<div class="callout warn"><strong>Ниже 400 м² в месяц.</strong> Это меньше нижней границы потока: исполнителям не хватит загрузки.</div>'
-    );
-  } else if (p.volume >= 500) {
-    warnings.push(
-      '<div class="callout ok"><strong>Целевой поток (от 500 м² в месяц).</strong> Исполнители загружены полностью.</div>'
+      `<div class="callout warn"><strong>Объём выше 85% мощности группы</strong> (${fmt(guarantee, 0)} м²). Гарантировать в договоре столько нельзя: нет запаса на правки и ожидание данных.</div>`
     );
   } else {
     warnings.push(
-      '<div class="callout ok"><strong>Выше нижней границы потока (400 м² в месяц).</strong></div>'
+      `<div class="callout ok"><strong>Объём в пределах мощности группы.</strong> Для него нужно ${n} ${plural(n, "исполнитель", "исполнителя", "исполнителей")} из ${p.team}${n < p.team ? ", остальные в резерве или берут больше" : ""}.</div>`
     );
   }
-  if (share > 1) {
+  if (per * p.rateC < 50000 && n <= p.team) {
     warnings.push(
-      '<div class="callout warn">Нагрузка выше возможностей исполнителя: нужно больше людей.</div>'
+      `<div class="callout warn">Доход одного исполнителя при таком объёме ${rub(per * p.rateC)} в месяц: меньше ориентира 50 000 ₽. Нужен больший объём или меньше людей.</div>`
     );
   }
 
   $("calc-out").innerHTML = `
     <div class="item"><div class="k">Позиций в месяц</div><div class="v">${fmt(items, 0)}</div></div>
     <div class="item"><div class="k">Позиций в рабочий день</div><div class="v">${fmt(items / p.workDays, 1)}</div></div>
-    <div class="item"><div class="k">Исполнителей в основном составе</div><div class="v">${n}</div></div>
+    <div class="item"><div class="k">Исполнителей нужно на этот объём</div><div class="v">${n}</div></div>
+    <div class="item"><div class="k">Исполнителей в группе сейчас</div><div class="v">${p.team}</div></div>
     <div class="item"><div class="k">На одного исполнителя в месяц, м²</div><div class="v">${fmt(per, 0)}</div></div>
     <div class="item"><div class="k">На одного исполнителя в неделю, м²</div><div class="v">${fmt(per / (p.workDays / 5), 0)}</div></div>
     <div class="item"><div class="k">Доход исполнителя в месяц</div><div class="v">${rub(per * p.rateC)}</div></div>
     <div class="item"><div class="k">Загрузка исполнителя</div><div class="v">${fmt(share * 100, 0)}%</div></div>
-    <div class="item"><div class="k">Мощность этого состава, м² в месяц</div><div class="v">${fmt(n * p.prod * p.workDays, 0)}</div></div>
-    <div class="item"><div class="k">Объём, который можно гарантировать в договоре (85% мощности), м²</div><div class="v">${fmt(n * p.prod * p.workDays * 0.85, 0)}</div></div>
+    <div class="item"><div class="k">Мощность группы, м² в месяц</div><div class="v">${fmt(cap, 0)}</div></div>
+    <div class="item"><div class="k">Гарантия в договоре (85% мощности), м² в месяц</div><div class="v">${fmt(guarantee, 0)}</div></div>
+    <div class="item"><div class="k">Мощность группы до срока заказчика, м²</div><div class="v">${fmt(capDeadline, 0)}</div></div>
+    <div class="item"><div class="k">Гарантия к сроку заказчика (85%), м² / позиций</div><div class="v">${fmt(guaranteeDeadline, 0)} / ${fmt(guaranteeDeadline / p.area, 0)}</div></div>
     <div class="item"><div class="k">Фонд оплаты исполнителям</div><div class="v">${rub(p.volume * p.rateC)}</div></div>
     <div class="item"><div class="k">Проверка и координация</div><div class="v">${rub(p.volume * p.rateK)}</div></div>
     <div class="item"><div class="k">Ставка по договору, ₽/м² (налог УСН)</div><div class="v">${fmt(rate1, 0)}</div></div>
@@ -112,75 +120,65 @@ function renderCalc() {
   `;
 }
 
-/* Этапы: объём задан сразу на полной нагрузке, без периода разгона */
-const STAGES = [
-  {
-    name: "Недели 1–2 (запуск на полной нагрузке, 2 недели)",
-    volume: 250,
-    days: 10,
-    note: "Первая партия из 4 позиций плюс остальная очередь. Первые три позиции каждого новичка проверяются полностью.",
-  },
-  {
-    name: "Месяц 1 (включая недели 1–2)",
-    volume: 500,
-    days: 21,
-    tag: "target",
-    note: "Целевой поток: около 5 позиций в рабочий день.",
-  },
-  {
-    name: "Месяц 2 и далее",
-    volume: 500,
-    days: 21,
-    tag: "target",
-    note: "Устойчивый поток при очереди не меньше недели вперёд.",
-  },
-  {
-    name: "Минимальный поток",
-    volume: 400,
-    days: 21,
-    tag: "min",
-    note: "Ниже этого объёма исполнителям не хватает загрузки, оплата проверки не окупает время.",
-  },
-  {
-    name: "Масштабирование",
-    volume: 700,
-    days: 21,
-    note: "Больше 7–8 человек без платформы вести сложно.",
-  },
+/* Сценарии выработки: что группа закрывает при разной скорости (6-10 м2 в день) */
+const SCENARIOS = [
+  { prod: 6, tag: "min", label: "базовая оценка" },
+  { prod: 8, label: "после библиотеки элементов" },
+  { prod: 10, tag: "target", label: "уровень штатного сотрудника" },
 ];
 
 const TAG_HTML = {
-  min: '<span class="badge min">нижняя граница потока</span>',
-  target: '<span class="badge target">целевой поток</span>',
+  min: '<span class="badge min">базовая</span>',
+  target: '<span class="badge target">потенциал</span>',
 };
 
-function renderStages() {
+function renderScenarios() {
   const p = params();
-  const rows = STAGES.map((s) => {
-    const n = peopleFor(p, s.volume, s.days);
-    const per = s.volume / n;
+  const rows = SCENARIOS.map((s) => {
+    const q = { ...p, prod: s.prod };
+    const week = s.prod * 5;
+    const teamWeek = p.team * week;
+    const teamDeadline = p.team * s.prod * p.deadline;
+    const teamMonth = p.team * s.prod * p.workDays;
+    const need = peopleFor(q, p.volume, p.workDays);
+    const income = (p.volume / need) * p.rateC;
     const tag = s.tag ? " " + TAG_HTML[s.tag] : "";
     const cls = s.tag ? ` class="row-${s.tag}"` : "";
-    const weeks = s.days / 5;
-    const teamWeek = s.volume / weeks;
     return `<tr${cls}>
-      <td>${s.name}${tag}</td>
-      <td class="num">${fmt(s.days)}</td>
-      <td class="num">${fmt(s.volume)}</td>
+      <td>${fmt(s.prod, 0)} м² в день${tag}<br><span class="small">${s.label}</span></td>
+      <td class="num">${fmt(week, 0)}</td>
       <td class="num">${fmt(teamWeek, 0)}</td>
-      <td class="num">${fmt(s.volume / p.area, 0)}</td>
-      <td class="num">${n}</td>
-      <td class="num">${fmt(per / weeks, 0)}</td>
-      <td>${fmt(per, 0)} м², ${rub(per * p.rateC)}</td>
-      <td>${s.note}</td>
+      <td class="num">${fmt(teamDeadline, 0)} (${fmt((teamDeadline * GUARANTEE) / p.area, 0)} поз. при 85%)</td>
+      <td class="num">${fmt(teamMonth, 0)}</td>
+      <td class="num">${fmt(teamMonth * GUARANTEE, 0)}</td>
+      <td class="num">${need}</td>
+      <td class="num">${rub(income)}</td>
     </tr>`;
   });
-  $("stages-body").innerHTML = rows.join("");
+  $("scen-body").innerHTML = rows.join("");
+  $("scen-team").textContent = fmt(p.team, 0);
+  $("scen-deadline").textContent = fmt(p.deadline, 0);
+  $("scen-volume").textContent = fmt(p.volume, 0);
+}
+
+/* Сроки позиций по площади: срок = площадь / выработка, вверх, минимум 1 день */
+function renderDueTable() {
+  const el = $("due-body");
+  if (!el) return;
+  const p = params();
+  const a = p.prod;
+  const rows = [
+    [`до ${fmt(a, 0)} м²`, "1 рабочий день"],
+    [`${fmt(a, 0)}–${fmt(2 * a, 0)} м²`, "2 рабочих дня"],
+    [`${fmt(2 * a, 0)}–${fmt(3 * a, 0)} м²`, "3 рабочих дня"],
+    ["дальше", `каждые следующие ${fmt(a, 0)} м² добавляют 1 рабочий день`],
+  ];
+  el.innerHTML = rows.map(([s, d]) => `<tr><td>${s}</td><td>${d}</td></tr>`).join("");
 }
 
 function renderSpeed() {
   const p = params();
-  const rows = [2.5, 3, 4, 5, 6].map((m2day) => {
+  const rows = [4, 6, 8, 10].map((m2day) => {
     const m2 = m2day * p.workDays;
     return `<tr>
       <td>${fmt(m2day, 1)} м² в день</td>
@@ -248,6 +246,8 @@ const FIELD_VARS = {
   "c-prod": "P",
   "c-days": "D",
   "c-load": "L",
+  "c-team": "IG",
+  "c-deadline": "RS",
 };
 
 /* Обозначения: sym - как в формуле, kind: in - поле ввода, mid - промежуточная величина, const - константа */
@@ -262,10 +262,13 @@ const VARS = {
   P: { sym: "ВИ", kind: "in", name: "Выработка исполнителя" },
   D: { sym: "РД", kind: "in", name: "Рабочих дней в месяц" },
   L: { sym: "ЗГ", kind: "in", name: "Целевая загрузка, доля" },
+  IG: { sym: "ИГ", kind: "in", name: "Исполнителей в группе" },
+  RS: { sym: "РС", kind: "in", name: "Рабочих дней до срока заказчика" },
   Z: { sym: "ПМ", kind: "mid", name: "Позиций в месяц" },
-  N: { sym: "ИС", kind: "mid", name: "Исполнителей" },
+  N: { sym: "ИС", kind: "mid", name: "Исполнителей нужно на объём" },
   Q: { sym: "МИ", kind: "mid", name: "М² на одного исполнителя" },
-  W: { sym: "МС", kind: "mid", name: "Мощность состава" },
+  W: { sym: "МГ", kind: "mid", name: "Мощность группы в месяц" },
+  X: { sym: "МС", kind: "mid", name: "Мощность группы до срока" },
   R1: { sym: "СД1", kind: "mid", name: "Ставка по договору, налог УСН" },
   R2: { sym: "СД2", kind: "mid", name: "Ставка по договору, налог УСН и самозанятых" },
   G: { sym: "ДГ", kind: "const", name: "Доля мощности для гарантии (0,85)" },
@@ -288,10 +291,13 @@ function formulaValues(p) {
     Z: fmt(p.volume / p.area, 0),
     N: String(N),
     Q: fmt(Q, 0),
-    W: fmt(N * p.prod * p.workDays, 0),
+    IG: fmt(p.team, 0),
+    RS: fmt(p.deadline, 0),
+    W: fmt(p.team * p.prod * p.workDays, 0),
+    X: fmt(p.team * p.prod * p.deadline, 0),
     R1: fmt(contractRate(p, false), 0),
     R2: fmt(contractRate(p, true), 0),
-    G: "0,85",
+    G: fmt(GUARANTEE, 2),
   };
   return { N, Q, val };
 }
@@ -312,7 +318,7 @@ function renderFormulas() {
     ["Позиций в месяц", "{Z} = {V} / {S}", fmt(p.volume / p.area, 0)],
     ["Позиций в рабочий день", "{Z} / {D}", fmt(p.volume / p.area / p.workDays, 1)],
     [
-      "Исполнителей в основном составе",
+      "Исполнителей нужно на объём",
       "{N} = ⌈ {V} / ({P} × {D} × {L}) ⌉, не меньше 1",
       String(N),
     ],
@@ -320,8 +326,10 @@ function renderFormulas() {
     ["М² на одного исполнителя в неделю", "{Q} / ({D} / 5), 5 рабочих дней в неделю", fmt(Q / (p.workDays / 5), 0)],
     ["Доход исполнителя в месяц", "{Q} × {Rc}", rub(Q * p.rateC)],
     ["Загрузка исполнителя", "{Q} / ({P} × {D})", fmt((Q / (p.prod * p.workDays)) * 100, 0) + "%"],
-    ["Мощность состава, м² в месяц", "{W} = {N} × {P} × {D}", fmt(N * p.prod * p.workDays, 0)],
-    ["Объём для гарантии в договоре, м²", "{W} × {G}", fmt(N * p.prod * p.workDays * 0.85, 0)],
+    ["Мощность группы, м² в месяц", "{W} = {IG} × {P} × {D}", fmt(p.team * p.prod * p.workDays, 0)],
+    ["Объём для гарантии в договоре, м² в месяц", "{W} × {G}", fmt(p.team * p.prod * p.workDays * GUARANTEE, 0)],
+    ["Мощность группы до срока заказчика, м²", "{X} = {IG} × {P} × {RS}", fmt(p.team * p.prod * p.deadline, 0)],
+    ["Гарантия к сроку заказчика, м²", "{X} × {G}", fmt(p.team * p.prod * p.deadline * GUARANTEE, 0)],
     ["Фонд оплаты исполнителям", "{V} × {Rc}", rub(p.volume * p.rateC)],
     ["Проверка и координация", "{V} × {Rk}", rub(p.volume * p.rateK)],
     ["Ставка по договору, ₽/м² (налог УСН)", "{R1} = ({Rc} + {Rk}) / (1 − {Tu})", fmt(contractRate(p, false), 0)],
@@ -361,7 +369,8 @@ function decorateFields() {
 function renderAll() {
   renderCalc();
   renderFormulas();
-  renderStages();
+  renderScenarios();
+  renderDueTable();
   renderSpeed();
   renderForecast();
   renderExample();
