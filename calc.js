@@ -51,7 +51,6 @@ function params() {
     models: num("c-models"),          // число позиций в программе
     team: isSolo() ? 1 : num("c-team") || 1, // исполнителей: в режиме «один исполнитель» всегда 1
     fact: num("c-fact"),              // фактическая выработка за период, м2
-    deadline: num("c-deadline") || 1, // рабочих дней до срока заказчика
   };
 }
 
@@ -92,9 +91,7 @@ function groupHtml(p) {
   const cost = p.volume * rate;
   const share = loadShare(p, per, p.workDays);
   const cap = p.team * p.prod * p.workDays;              // мощность группы в месяц
-  const capDeadline = p.team * p.prod * p.deadline;      // мощность группы до срока заказчика
   const guarantee = cap * GUARANTEE;
-  const guaranteeDeadline = capDeadline * GUARANTEE;
   const people = (k) => plural(k, "исполнитель", "исполнителя", "исполнителей");
 
   const warnings = [];
@@ -147,8 +144,6 @@ function groupHtml(p) {
     </div>
     <div class="rgroup"><h4>Мощность группы (прогноз)</h4>
       ${crow("В месяц, м²", fmt(cap, 0))}
-      ${crow("До срока заказчика, м²", fmt(capDeadline, 0))}
-      ${crow("Гарантия к сроку (85%), м² / позиций", fmt(guaranteeDeadline, 0) + " / " + fmt(guaranteeDeadline / p.area, 0))}
     </div>
     <div class="rgroup"><h4>Деньги в месяц при заявленном объёме</h4>
       ${crow("Исполнителям на руки", rub(p.volume * p.rateC))}
@@ -248,8 +243,6 @@ function renderPlan() {
   if ($("plan-team-word")) $("plan-team-word").textContent = plural(p.team, "исполнителя", "исполнителей", "исполнителей");
   $("plan-prod").textContent = fmt(p.prod, 1);
   $("plan-days").textContent = fmt(days, 0);
-  $("plan-deadline").textContent = fmt(p.deadline, 0);
-  $("plan-deadline-m2").textContent = fmt(p.team * p.prod * p.deadline, 0);
 }
 
 /* Сценарии выработки на месяц (6-10 м2 в день) */
@@ -370,7 +363,6 @@ const FIELD_VARS = {
   "c-days": "D",
   "c-load": "L",
   "c-team": "IG",
-  "c-deadline": "RS",
   "c-fact": "FV",
 };
 
@@ -387,13 +379,11 @@ const VARS = {
   D: { sym: "РД", kind: "in", name: "Рабочих дней в периоде" },
   L: { sym: "ЗГ", kind: "in", name: "Целевая загрузка, доля" },
   IG: { sym: "ИГ", kind: "in", name: "Исполнителей в группе" },
-  RS: { sym: "РС", kind: "in", name: "Рабочих дней до срока заказчика" },
   FV: { sym: "ФВ", kind: "in", name: "Фактическая выработка (принятая площадь), м²" },
   Z: { sym: "ПМ", kind: "mid", name: "Позиций в месяц" },
   N: { sym: "ИС", kind: "mid", name: "Исполнителей нужно на объём" },
   Q: { sym: "МИ", kind: "mid", name: "М² на одного исполнителя" },
   W: { sym: "МГ", kind: "mid", name: "Мощность группы в месяц" },
-  X: { sym: "МС", kind: "mid", name: "Мощность группы до срока" },
   SB: { sym: "СИч", kind: "mid", name: "Ставка исполнителю по чеку (с налогом самозанятого)" },
   R2: { sym: "СД", kind: "mid", name: "Ставка по договору (налоги УСН и самозанятых внутри)" },
   G: { sym: "ДГ", kind: "const", name: "Доля мощности для гарантии (0,85)" },
@@ -418,9 +408,7 @@ function formulaValues(p) {
     N: String(N),
     Q: fmt(Q, 0),
     IG: fmt(p.team, 0),
-    RS: fmt(p.deadline, 0),
     W: fmt(p.team * p.prod * p.workDays, 0),
-    X: fmt(p.team * p.prod * p.deadline, 0),
     SB: fmt(rateGross(p), 1),
     R2: fmt(contractRate(p), 0),
     G: fmt(GUARANTEE, 2),
@@ -464,8 +452,6 @@ function formulaRows(p, N, Q) {
     ["Загрузка исполнителя", "{Q} / ({P} × {D})", fmt((Q / (p.prod * p.workDays)) * 100, 0) + "%"],
     ["Мощность группы, м² в месяц", "{W} = {IG} × {P} × {D}", fmt(p.team * p.prod * p.workDays, 0)],
     ["Объём для гарантии в договоре, м² в месяц", "{W} × {G}", fmt(p.team * p.prod * p.workDays * GUARANTEE, 0)],
-    ["Мощность группы до срока заказчика, м²", "{X} = {IG} × {P} × {RS}", fmt(p.team * p.prod * p.deadline, 0)],
-    ["Гарантия к сроку заказчика, м²", "{X} × {G}", fmt(p.team * p.prod * p.deadline * GUARANTEE, 0)],
     ["Ставка исполнителю по чеку, ₽/м²", "{SB} = {Rc} / (1 − {Tn})", fmt(gross, 1)],
     ["Ставка по договору, ₽/м²", "{R2} = ({SB} + {Rk}) / (1 − {Tu})", fmt(rate, 0)],
     ["Исполнителям на руки", "{V} × {Rc}", rub(p.volume * p.rateC)],
