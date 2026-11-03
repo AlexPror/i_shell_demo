@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
@@ -178,7 +178,8 @@
       <div id="calc-out" class="calc-out"></div>
     </div>
   </div>
-  <h3>Как считается калькулятор</h3>
+  <details class="fx-details" id="fx-details">
+  <summary>Как считается калькулятор: формулы и обозначения</summary>
   <p class="small">
     Цвет переменной совпадает с цветом метки у поля ввода выше. Цветные плашки со сплошной рамкой: значения, которые вы вводите;
     пунктирная рамка: промежуточные величины; серая плашка: константа. В подстановке стоят текущие числа, справа результат.
@@ -191,6 +192,7 @@
       <tbody id="formula-body"></tbody>
     </table>
   </div>
+  </details>
 </div></div></section>
 
 <section class="block" id="volumes"><div class="wrap"><div class="panel">
@@ -417,5 +419,6 @@
 </footer>
 
 <script src="calc.js"></script>
+<script src="ui.js"></script>
 </body>
 </html>

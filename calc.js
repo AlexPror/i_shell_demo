@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 /* Расчёты на странице: все формулы собраны здесь.
    Значения по умолчанию - допущения, которые уточняются по итогам запуска. */
@@ -147,7 +147,7 @@ function renderPlan() {
     const perPerson = cum / p.team;
     rows.push(`<tr>
       <td>Неделя ${week}</td>
-      <td>${from === done ? "день " + from : "дни " + from + "–" + done}</td>
+      <td class="num">${from === done ? "день " + from : "дни " + from + "–" + done}</td>
       <td class="num">${fmt(team, 0)}</td>
       <td class="num">${fmt(cum, 0)}</td>
       <td class="num">${fmt(cum / p.area, 0)}</td>
@@ -419,6 +419,7 @@ function renderAll() {
   renderForecast();
   renderExample();
   if (typeof window.renderInternal === "function") window.renderInternal();
+  if (typeof window.labelTables === "function") window.labelTables();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
