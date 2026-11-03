@@ -166,10 +166,19 @@
     <div><label for="c-load">Целевая загрузка исполнителя, %</label><input id="c-load" type="number" inputmode="decimal" value="100" min="10" max="100"></div>
   </div>
   <div id="calc-out" class="calc-out"></div>
-  <p class="small" style="margin-top:10px">
-    Формулы: ставка по договору = (ставка исполнителю + ставка проверки) / (1 − налог УСН); во втором варианте
-    ставка исполнителю предварительно делится на (1 − налог самозанятого). Число исполнителей = объём / (выработка × рабочие дни × целевая загрузка), округляется вверх.
+  <h3>Как считается калькулятор</h3>
+  <p class="small">
+    Цвет переменной совпадает с цветом метки и рамки у поля ввода выше. Цветные плашки со сплошной рамкой: значения, которые вы вводите;
+    пунктирная рамка: промежуточные величины; серая плашка: константа. В подстановке стоят текущие числа, справа результат.
+    Проценты в полях переводятся в доли (6% → 0,06).
   </p>
+  <div id="formula-legend" class="fx-legend"></div>
+  <div class="table-wrap">
+    <table class="fx-table">
+      <thead><tr><th>Показатель</th><th>Формула</th><th>Подстановка</th><th class="num">Результат</th></tr></thead>
+      <tbody id="formula-body"></tbody>
+    </table>
+  </div>
 </div></div></section>
 
 <section class="block" id="volumes"><div class="wrap"><div class="panel">

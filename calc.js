@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 /* Расчёты на странице: все формулы собраны здесь.
    Значения по умолчанию - допущения, которые уточняются по итогам запуска. */
@@ -217,7 +217,7 @@ function renderExample() {
     totalS += pos.s;
     totalC += c;
     totalK += k;
-    const days = Math.max(1, Math.ceil(pos.s / 5 - 1e-9));
+    const days = Math.max(1, Math.ceil(pos.s / p.prod - 1e-9));
     return `<tr><td>${pos.name}</td><td class="num">${fmt(pos.s, 1)}</td>
       <td class="num">${days}</td>
       <td class="num">${rub(c)}</td><td class="num">${rub(k)}</td></tr>`;
@@ -228,8 +228,132 @@ function renderExample() {
   $("example-body").innerHTML = rows.join("");
 }
 
+/* ---------- Формулы калькулятора с цветной подсветкой переменных ---------- */
+
+/* Поля ввода: id поля -> ключ переменной */
+const FIELD_VARS = {
+  "c-volume": "V",
+  "c-area": "S",
+  "c-models": "M",
+  "c-rate-c": "Rc",
+  "c-rate-k": "Rk",
+  "c-tax-usn": "Tu",
+  "c-tax-npd": "Tn",
+  "c-prod": "P",
+  "c-days": "D",
+  "c-load": "L",
+};
+
+/* Обозначения: sym - как в формуле, kind: in - поле ввода, mid - промежуточная величина, const - константа */
+const VARS = {
+  V: { sym: "V", kind: "in", name: "Объём в месяц" },
+  S: { sym: "S", kind: "in", name: "Средняя площадь позиции" },
+  M: { sym: "M", kind: "in", name: "Позиций в программе" },
+  Rc: { sym: "Rи", kind: "in", name: "Ставка исполнителю" },
+  Rk: { sym: "Rп", kind: "in", name: "Ставка проверки" },
+  Tu: { sym: "Tу", kind: "in", name: "Налог подрядчика (УСН), доля" },
+  Tn: { sym: "Tн", kind: "in", name: "Налог самозанятого, доля" },
+  P: { sym: "P", kind: "in", name: "Выработка исполнителя" },
+  D: { sym: "D", kind: "in", name: "Рабочих дней в месяц" },
+  L: { sym: "L", kind: "in", name: "Целевая загрузка, доля" },
+  Z: { sym: "Z", kind: "mid", name: "Позиций в месяц" },
+  N: { sym: "N", kind: "mid", name: "Исполнителей" },
+  Q: { sym: "Q", kind: "mid", name: "М² на одного исполнителя" },
+  W: { sym: "W", kind: "mid", name: "Мощность состава" },
+  R1: { sym: "R₁", kind: "mid", name: "Ставка по договору, налог УСН" },
+  R2: { sym: "R₂", kind: "mid", name: "Ставка по договору, налог УСН и самозанятых" },
+  G: { sym: "G", kind: "const", name: "Доля мощности для гарантии (0,85)" },
+};
+
+function formulaValues(p) {
+  const N = peopleFor(p, p.volume, p.workDays);
+  const Q = p.volume / N;
+  const val = {
+    V: fmt(p.volume, 0),
+    S: fmt(p.area, 1),
+    M: fmt(p.models, 0),
+    Rc: fmt(p.rateC, 0),
+    Rk: fmt(p.rateK, 0),
+    Tu: fmt(p.taxUsn, 2),
+    Tn: fmt(p.taxNpd, 2),
+    P: fmt(p.prod, 1),
+    D: fmt(p.workDays, 0),
+    L: fmt(p.load, 2),
+    Z: fmt(p.volume / p.area, 0),
+    N: String(N),
+    Q: fmt(Q, 0),
+    W: fmt(N * p.prod * p.workDays, 0),
+    R1: fmt(contractRate(p, false), 0),
+    R2: fmt(contractRate(p, true), 0),
+    G: "0,85",
+  };
+  return { N, Q, val };
+}
+
+const chip = (key, text) =>
+  `<span class="fx fx-${VARS[key].kind} fx-${key}">${text}</span>`;
+
+function renderFormulas() {
+  const host = $("formula-body");
+  if (!host) return;
+  const p = params();
+  const { N, Q, val } = formulaValues(p);
+  const sym = (tpl) => tpl.replace(/\{(\w+)\}/g, (_, k) => chip(k, VARS[k].sym));
+  const num_ = (tpl) => tpl.replace(/\{(\w+)\}/g, (_, k) => chip(k, val[k]));
+  const res = (text) => `<span class="fx-res">${text}</span>`;
+
+  const rows = [
+    ["Позиций в месяц", "{Z} = {V} / {S}", fmt(p.volume / p.area, 0)],
+    ["Позиций в рабочий день", "{Z} / {D}", fmt(p.volume / p.area / p.workDays, 1)],
+    [
+      "Исполнителей в основном составе",
+      "{N} = ⌈ {V} / ({P} × {D} × {L}) ⌉, не меньше 1",
+      String(N),
+    ],
+    ["М² на одного исполнителя", "{Q} = {V} / {N}", fmt(Q, 0)],
+    ["Доход исполнителя в месяц", "{Q} × {Rc}", rub(Q * p.rateC)],
+    ["Загрузка исполнителя", "{Q} / ({P} × {D})", fmt((Q / (p.prod * p.workDays)) * 100, 0) + "%"],
+    ["Мощность состава, м² в месяц", "{W} = {N} × {P} × {D}", fmt(N * p.prod * p.workDays, 0)],
+    ["Объём для гарантии в договоре, м²", "{W} × {G}", fmt(N * p.prod * p.workDays * 0.85, 0)],
+    ["Фонд оплаты исполнителям", "{V} × {Rc}", rub(p.volume * p.rateC)],
+    ["Проверка и координация", "{V} × {Rk}", rub(p.volume * p.rateK)],
+    ["Ставка по договору, ₽/м² (налог УСН)", "{R1} = ({Rc} + {Rk}) / (1 − {Tu})", fmt(contractRate(p, false), 0)],
+    [
+      "Ставка по договору, ₽/м² (налог УСН и самозанятых)",
+      "{R2} = ({Rc} / (1 − {Tn}) + {Rk}) / (1 − {Tu})",
+      fmt(contractRate(p, true), 0),
+    ],
+    ["Расходы заказчика в месяц", "{V} × {R2}", rub(p.volume * contractRate(p, true))],
+    ["Срок закрытия программы, месяцев", "{M} × {S} / {V}", fmt((p.models * p.area) / (p.volume || 1), 1)],
+    ["Срок одной позиции, рабочих дней", "⌈ площадь позиции / {P} ⌉, не меньше 1", fmt(Math.max(1, Math.ceil(p.area / p.prod - 1e-9)), 0) + " (для средней позиции)"],
+  ].map(([name, f, r]) => {
+    const f1 = f;
+    return `<tr><td>${name}</td><td class="fx-line">${sym(f1)}</td><td class="fx-line">${num_(f1)}</td><td class="num">${res(r)}</td></tr>`;
+  });
+  host.innerHTML = rows.join("");
+
+  $("formula-legend").innerHTML =
+    Object.keys(VARS)
+      .map((k) => `<span class="fx-leg">${chip(k, VARS[k].sym)} ${VARS[k].name}</span>`)
+      .join("");
+}
+
+/* Цветные метки у полей калькулятора */
+function decorateFields() {
+  Object.entries(FIELD_VARS).forEach(([id, key]) => {
+    const input = $(id);
+    if (!input) return;
+    const label = input.parentElement.querySelector("label");
+    if (label && !label.querySelector(".fx")) {
+      label.insertAdjacentHTML("afterbegin", chip(key, VARS[key].sym) + " ");
+    }
+    input.classList.add("fx-field", "fx-field-" + key);
+  });
+}
+
 function renderAll() {
   renderCalc();
+  renderFormulas();
   renderStages();
   renderSpeed();
   renderForecast();
@@ -238,6 +362,7 @@ function renderAll() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  decorateFields();
   document.querySelectorAll(".calc-grid input").forEach((el) => {
     el.addEventListener("input", renderAll);
   });
