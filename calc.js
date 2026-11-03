@@ -98,25 +98,35 @@ function renderCalc() {
     );
   }
 
+  const kpi = (k, v, s) =>
+    `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const row = (k, v) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`;
+
   $("calc-out").innerHTML = `
-    <div class="item"><div class="k">Позиций в месяц</div><div class="v">${fmt(items, 0)}</div></div>
-    <div class="item"><div class="k">Позиций в рабочий день</div><div class="v">${fmt(items / p.workDays, 1)}</div></div>
-    <div class="item"><div class="k">Исполнителей нужно на этот объём</div><div class="v">${n}</div></div>
-    <div class="item"><div class="k">Исполнителей в группе сейчас</div><div class="v">${p.team}</div></div>
-    <div class="item"><div class="k">На одного исполнителя в месяц, м²</div><div class="v">${fmt(per, 0)}</div></div>
-    <div class="item"><div class="k">На одного исполнителя в неделю, м²</div><div class="v">${fmt(per / (p.workDays / 5), 0)}</div></div>
-    <div class="item"><div class="k">Доход исполнителя в месяц</div><div class="v">${rub(per * p.rateC)}</div></div>
-    <div class="item"><div class="k">Загрузка исполнителя</div><div class="v">${fmt(share * 100, 0)}%</div></div>
-    <div class="item"><div class="k">Мощность группы, м² в месяц</div><div class="v">${fmt(cap, 0)}</div></div>
-    <div class="item"><div class="k">Гарантия в договоре (85% мощности), м² в месяц</div><div class="v">${fmt(guarantee, 0)}</div></div>
-    <div class="item"><div class="k">Мощность группы до срока заказчика, м²</div><div class="v">${fmt(capDeadline, 0)}</div></div>
-    <div class="item"><div class="k">Гарантия к сроку заказчика (85%), м² / позиций</div><div class="v">${fmt(guaranteeDeadline, 0)} / ${fmt(guaranteeDeadline / p.area, 0)}</div></div>
-    <div class="item"><div class="k">Фонд оплаты исполнителям</div><div class="v">${rub(p.volume * p.rateC)}</div></div>
-    <div class="item"><div class="k">Проверка и координация</div><div class="v">${rub(p.volume * p.rateK)}</div></div>
-    <div class="item"><div class="k">Ставка по договору, ₽/м² (налог УСН)</div><div class="v">${fmt(rate1, 0)}</div></div>
-    <div class="item"><div class="k">То же, если налог исполнителей-самозанятых тоже компенсируется</div><div class="v">${fmt(rate2, 0)}</div></div>
-    <div class="item"><div class="k">Расходы заказчика в месяц (по второй ставке)</div><div class="v">${rub(monthlyCost)}</div></div>
+    <div class="kpis">
+      ${kpi("Исполнителей нужно", n, "из " + p.team + " в группе")}
+      ${kpi("Доход исполнителя", rub(per * p.rateC), "в месяц")}
+      ${kpi("Загрузка", fmt(share * 100, 0) + "%", fmt(per, 0) + " м² в месяц на человека")}
+      ${kpi("Гарантия в договоре", fmt(guarantee, 0) + " м²", "85% мощности в месяц")}
+    </div>
     ${warnings.join("")}
+    <div class="rgroup"><h4>Объём</h4>
+      ${row("Позиций в месяц", fmt(items, 0))}
+      ${row("Позиций в рабочий день", fmt(items / p.workDays, 1))}
+      ${row("На исполнителя в неделю, м²", fmt(per / (p.workDays / 5), 0))}
+    </div>
+    <div class="rgroup"><h4>Мощность группы</h4>
+      ${row("В месяц, м²", fmt(cap, 0))}
+      ${row("До срока заказчика, м²", fmt(capDeadline, 0))}
+      ${row("Гарантия к сроку (85%), м² / позиций", fmt(guaranteeDeadline, 0) + " / " + fmt(guaranteeDeadline / p.area, 0))}
+    </div>
+    <div class="rgroup"><h4>Деньги</h4>
+      ${row("Фонд оплаты исполнителям", rub(p.volume * p.rateC))}
+      ${row("Проверка и координация", rub(p.volume * p.rateK))}
+      ${row("Ставка по договору, ₽/м² (УСН)", fmt(rate1, 0))}
+      ${row("То же + налог самозанятых, ₽/м²", fmt(rate2, 0))}
+      ${row("Расходы заказчика в месяц (вторая ставка)", rub(monthlyCost))}
+    </div>
   `;
 }
 
@@ -413,7 +423,7 @@ function renderAll() {
 
 document.addEventListener("DOMContentLoaded", () => {
   decorateFields();
-  document.querySelectorAll(".calc-grid input").forEach((el) => {
+  document.querySelectorAll(".calc-grid input, .calc-compact input").forEach((el) => {
     el.addEventListener("input", renderAll);
   });
   renderAll();

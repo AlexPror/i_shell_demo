@@ -150,24 +150,37 @@
 <section class="block" id="calc"><div class="wrap"><div class="panel">
   <h2>Калькулятор потока</h2>
   <p class="small">Меняйте значения: таблицы на странице пересчитываются.</p>
-  <div class="calc-grid">
-    <div><label for="c-volume">Объём, который нам отдают в месяц, м²</label><input id="c-volume" type="number" inputmode="decimal" value="500" min="0"></div>
-    <div><label for="c-area">Средняя площадь позиции, м²</label><input id="c-area" type="number" inputmode="decimal" value="4.9" min="0.1" step="0.1"></div>
-    <div><label for="c-models">Позиций в программе</label><input id="c-models" type="number" inputmode="decimal" value="500" min="0"></div>
-    <div><label for="c-rate-c">Ставка исполнителю, ₽/м²</label><input id="c-rate-c" type="number" inputmode="decimal" value="500" min="0"></div>
-    <div><label for="c-rate-k">Ставка проверки, ₽/м²</label><input id="c-rate-k" type="number" inputmode="decimal" value="100" min="0"></div>
-    <div><label for="c-tax-usn">Налог подрядчика (УСН), %</label><input id="c-tax-usn" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
-    <div><label for="c-tax-npd">Налог самозанятого, %</label><input id="c-tax-npd" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
-    <div><label for="c-prod">Выработка исполнителя, м² в рабочий день (6–10)</label><input id="c-prod" type="number" inputmode="decimal" value="6" min="0.5" step="0.5"></div>
-    <div><label for="c-days">Рабочих дней в месяц (5 в неделю, усреднённо)</label><input id="c-days" type="number" inputmode="decimal" value="21" min="1" max="31"></div>
-    <div><label for="c-load">Целевая загрузка исполнителя, %</label><input id="c-load" type="number" inputmode="decimal" value="100" min="10" max="100"></div>
-    <div><label for="c-team">Исполнителей в группе сейчас</label><input id="c-team" type="number" inputmode="decimal" value="5" min="1" step="1"></div>
-    <div><label for="c-deadline">Дней до срока заказчика (середина ноября), 5 в неделю</label><input id="c-deadline" type="number" inputmode="decimal" value="8" min="1" step="1"></div>
+  <div class="calc-compact">
+    <div class="calc-inputs">
+      <div class="cgroup">
+        <h4>Объём</h4>
+        <div class="crow"><label for="c-volume">Объём в месяц, м²</label><input id="c-volume" type="number" inputmode="decimal" value="500" min="0"></div>
+        <div class="crow"><label for="c-area">Средняя площадь позиции, м²</label><input id="c-area" type="number" inputmode="decimal" value="4.9" min="0.1" step="0.1"></div>
+        <div class="crow"><label for="c-models">Позиций в программе</label><input id="c-models" type="number" inputmode="decimal" value="500" min="0"></div>
+      </div>
+      <div class="cgroup">
+        <h4>Ставки и налоги</h4>
+        <div class="crow"><label for="c-rate-c">Ставка исполнителю, ₽/м²</label><input id="c-rate-c" type="number" inputmode="decimal" value="500" min="0"></div>
+        <div class="crow"><label for="c-rate-k">Ставка проверки, ₽/м²</label><input id="c-rate-k" type="number" inputmode="decimal" value="100" min="0"></div>
+        <div class="crow"><label for="c-tax-usn">Налог подрядчика (УСН), %</label><input id="c-tax-usn" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
+        <div class="crow"><label for="c-tax-npd">Налог самозанятого, %</label><input id="c-tax-npd" type="number" inputmode="decimal" value="6" min="0" max="50"></div>
+      </div>
+      <div class="cgroup">
+        <h4>Выработка и состав</h4>
+        <div class="crow"><label for="c-prod">Выработка, м² в день (6–10)</label><input id="c-prod" type="number" inputmode="decimal" value="6" min="0.5" step="0.5"></div>
+        <div class="crow"><label for="c-days">Рабочих дней в месяц</label><input id="c-days" type="number" inputmode="decimal" value="21" min="1" max="31"></div>
+        <div class="crow"><label for="c-load">Целевая загрузка, %</label><input id="c-load" type="number" inputmode="decimal" value="100" min="10" max="100"></div>
+        <div class="crow"><label for="c-team">Исполнителей в группе</label><input id="c-team" type="number" inputmode="decimal" value="5" min="1" step="1"></div>
+        <div class="crow"><label for="c-deadline">Дней до срока заказчика</label><input id="c-deadline" type="number" inputmode="decimal" value="8" min="1" step="1"></div>
+      </div>
+    </div>
+    <div class="calc-results">
+      <div id="calc-out" class="calc-out"></div>
+    </div>
   </div>
-  <div id="calc-out" class="calc-out"></div>
   <h3>Как считается калькулятор</h3>
   <p class="small">
-    Цвет переменной совпадает с цветом метки и рамки у поля ввода выше. Цветные плашки со сплошной рамкой: значения, которые вы вводите;
+    Цвет переменной совпадает с цветом метки у поля ввода выше. Цветные плашки со сплошной рамкой: значения, которые вы вводите;
     пунктирная рамка: промежуточные величины; серая плашка: константа. В подстановке стоят текущие числа, справа результат.
     Проценты в полях переводятся в доли (6% → 0,06).
   </p>
