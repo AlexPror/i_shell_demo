@@ -164,7 +164,8 @@ function renderPlan() {
 
 /* Сценарии выработки на месяц (6-10 м2 в день) */
 const SCENARIOS = [
-  { prod: 6, tag: "min", label: "базовая оценка" },
+  { prod: 6, tag: "min", label: "средний показатель, 5 дней в неделю" },
+  { prod: 6, k: 1.2, label: "то же плюс работа в субботу (6 дней в неделю)" },
   { prod: 8, label: "после библиотеки элементов" },
   { prod: 10, tag: "target", label: "уровень штатного сотрудника" },
 ];
@@ -178,16 +179,17 @@ function renderScenarios() {
   const p = params();
   const days = Math.max(1, Math.round(p.workDays));
   const rows = SCENARIOS.map((s) => {
-    const month = p.team * s.prod * days;
+    const k = s.k || 1; // коэффициент выходных: 1,2 = шесть дней в неделю вместо пяти
+    const month = p.team * s.prod * days * k;
     const tag = s.tag ? " " + TAG_HTML[s.tag] : "";
     const cls = s.tag ? ` class="row-${s.tag}"` : "";
     return `<tr${cls}>
       <td>${fmt(s.prod, 0)} м² в день${tag}<br><span class="small">${s.label}</span></td>
-      <td class="num">${fmt(s.prod * 5, 0)}</td>
+      <td class="num">${fmt(s.prod * 5 * k, 0)}</td>
       <td class="num">${fmt(month, 0)}</td>
       <td class="num">${fmt(month * GUARANTEE, 0)}</td>
       <td class="num">${fmt(month / p.area, 0)}</td>
-      <td class="num">${rub(s.prod * days * p.rateC)}</td>
+      <td class="num">${rub(s.prod * days * k * p.rateC)}</td>
     </tr>`;
   });
   $("scen-body").innerHTML = rows.join("");
